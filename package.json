@@ -1,6 +1,6 @@
 {
   "name": "git-blame-blame",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Find who approved the PR that introduced a bug",
   "type": "module",
   "bin": {
