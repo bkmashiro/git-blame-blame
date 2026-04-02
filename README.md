@@ -103,6 +103,12 @@ pnpm dev src/auth.js:42
 pnpm build
 ```
 
+## VS Code Extension
+
+A minimal VS Code extension scaffold lives in [`vscode/`](./vscode/).
+
+See [`vscode/README.md`](./vscode/README.md) for setup and usage instructions.
+
 ## License
 
 MIT

@@ -1,0 +1,42 @@
+{
+  "name": "git-blame-blame-vscode",
+  "displayName": "Git Blame Blame",
+  "description": "Who approved the line you are blaming?",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onCommand:gitBlameBlame.blameLine"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [{
+      "command": "gitBlameBlame.blameLine",
+      "title": "Git Blame Blame: Who Approved This Line?"
+    }],
+    "menus": {
+      "editor/context": [{ "command": "gitBlameBlame.blameLine" }]
+    },
+    "configuration": {
+      "title": "Git Blame Blame",
+      "properties": {
+        "gitBlameBlame.githubToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "GitHub token used by the Git Blame Blame extension. Falls back to the `GITHUB_TOKEN` environment variable."
+        },
+        "gitBlameBlame.cliPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional path to the `git-blame-blame` CLI. Defaults to the repository build output or `git-blame-blame` on your PATH."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^6.0.0"
+  }
+}
