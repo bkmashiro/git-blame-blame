@@ -1,0 +1,7 @@
+[
+  {
+    "number": 42,
+    "title": "Fix flaky parser behavior",
+    "html_url": "https://github.com/acme/git-blame-blame/pull/42"
+  }
+]

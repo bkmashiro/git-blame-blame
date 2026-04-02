@@ -31,7 +31,7 @@ export function formatOutput(data: OutputData): void {
     console.log();
 
     if (approvals.length === 0) {
-      console.log(`  ${chalk.yellow('Approved:')} ${chalk.dim('(no approvals found)')}`);
+      console.log(`  ${chalk.yellow('Approved:')} ${chalk.dim('No approvals found')}`);
     } else {
       const approverList = approvals.map((a) => {
         if (a.email) {

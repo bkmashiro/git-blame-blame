@@ -16,6 +16,38 @@ export interface Approver {
   email?: string;
 }
 
+export function parsePRFromCommitPullsResponse(
+  pulls: Array<{ number: number; title: string; html_url: string }>
+): PRInfo | null {
+  if (pulls.length === 0) {
+    return null;
+  }
+
+  const pr = pulls[0];
+  return {
+    number: pr.number,
+    title: pr.title,
+    html_url: pr.html_url,
+  };
+}
+
+export function parseApprovalsFromReviews(
+  reviews: Array<{ state?: string; user?: { login: string; email?: string | null } | null }>
+): Approver[] {
+  const approvalMap = new Map<string, Approver>();
+
+  for (const review of reviews) {
+    if (review.state === 'APPROVED' && review.user) {
+      approvalMap.set(review.user.login, {
+        login: review.user.login,
+        email: review.user.email ?? undefined,
+      });
+    }
+  }
+
+  return Array.from(approvalMap.values());
+}
+
 export function getRepoInfo(remoteUrl: string): RepoInfo {
   // Support HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
   // Support SSH: git@github.com:owner/repo.git
@@ -49,16 +81,7 @@ export async function getPRForCommit(
     });
 
     const pulls = response.data as Array<{ number: number; title: string; html_url: string }>;
-    if (!pulls || pulls.length === 0) {
-      return null;
-    }
-
-    const pr = pulls[0];
-    return {
-      number: pr.number,
-      title: pr.title,
-      html_url: pr.html_url,
-    };
+    return parsePRFromCommitPullsResponse(pulls);
   } catch (err) {
     const error = err as { status?: number; message?: string };
     if (error.status === 404) {
@@ -81,20 +104,7 @@ export async function getApprovals(
       pull_number: pullNumber,
     });
 
-    const reviews = response.data;
-
-    // Filter approved reviews and deduplicate by user login (keep latest)
-    const approvalMap = new Map<string, Approver>();
-    for (const review of reviews) {
-      if (review.state === 'APPROVED' && review.user) {
-        approvalMap.set(review.user.login, {
-          login: review.user.login,
-          email: review.user.email ?? undefined,
-        });
-      }
-    }
-
-    return Array.from(approvalMap.values());
+    return parseApprovalsFromReviews(response.data);
   } catch (err) {
     throw new Error(`Failed to get approvals for PR #${pullNumber}: ${(err as Error).message}`);
   }

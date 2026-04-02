@@ -3,11 +3,17 @@
   "version": "0.1.0",
   "description": "Find who approved the PR that introduced a bug",
   "type": "module",
-  "bin": { "git-blame-blame": "dist/index.js" },
-  "files": ["dist/", "README.md"],
+  "bin": {
+    "git-blame-blame": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "node --import tsx/esm src/index.ts",
+    "test": "node --import tsx/esm --test test/**/*.test.ts",
     "prepublishOnly": "tsc"
   },
   "dependencies": {

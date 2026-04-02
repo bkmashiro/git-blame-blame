@@ -10,6 +10,42 @@ export interface BlameResult {
   lineContent: string;
 }
 
+export function parseGitLogOutput(output: string): Omit<BlameResult, 'lineContent'> {
+  const lines = output.split('\n');
+  const commitLine = lines.find((line) => /^[0-9a-f]{40}\s/.test(line));
+
+  if (!commitLine) {
+    throw new Error('Could not parse git log output');
+  }
+
+  const parts = commitLine.split(' ');
+  const sha = parts[0];
+  const authorEmail = parts[1];
+  const dateIdx = parts.findIndex((part, index) => index > 1 && /^\d{4}-\d{2}-\d{2}$/.test(part));
+
+  if (dateIdx === -1) {
+    throw new Error(`Could not parse date from git log output: ${commitLine}`);
+  }
+
+  return {
+    sha,
+    authorEmail,
+    authorName: parts.slice(2, dateIdx).join(' '),
+    date: parts[dateIdx],
+    subject: parts.slice(dateIdx + 1).join(' '),
+  };
+}
+
+export function extractLineNumberFromBlameOutput(output: string): number {
+  const match = output.match(/\s(\d+)\)\s/);
+
+  if (!match) {
+    throw new Error('Could not parse line number from blame output');
+  }
+
+  return Number.parseInt(match[1], 10);
+}
+
 export function blameFile(filePath: string, line: number): BlameResult {
   // Read the actual line content from the file
   const fileContent = readFileSync(filePath, 'utf-8');
@@ -31,31 +67,5 @@ export function blameFile(filePath: string, line: number): BlameResult {
     throw new Error(`No git history found for ${filePath}:${line}`);
   }
 
-  // The output may contain diff lines before the commit line, filter to the first format line
-  const lines2 = output.split('\n');
-  // The commit line matches: <40-char sha> <email> <name> <date> <subject>
-  const commitLine = lines2.find((l) => /^[0-9a-f]{40}\s/.test(l));
-
-  if (!commitLine) {
-    throw new Error(`Could not parse git log output for ${filePath}:${line}`);
-  }
-
-  // Parse: sha email name date ...rest(subject)
-  // Format: %H %ae %an %ad %s
-  // Note: name and subject can have spaces, but date is YYYY-MM-DD
-  const parts = commitLine.split(' ');
-  const sha = parts[0];
-  const authorEmail = parts[1];
-
-  // Find the date (format YYYY-MM-DD)
-  const dateIdx = parts.findIndex((p, i) => i > 1 && /^\d{4}-\d{2}-\d{2}$/.test(p));
-  if (dateIdx === -1) {
-    throw new Error(`Could not parse date from git log output: ${commitLine}`);
-  }
-
-  const authorName = parts.slice(2, dateIdx).join(' ');
-  const date = parts[dateIdx];
-  const subject = parts.slice(dateIdx + 1).join(' ');
-
-  return { sha, authorEmail, authorName, date, subject, lineContent };
+  return { ...parseGitLogOutput(output), lineContent };
 }

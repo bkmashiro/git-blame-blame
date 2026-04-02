@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "state": "COMMENTED",
+    "user": {
+      "login": "sam",
+      "email": "sam@example.com"
+    }
+  },
+  {
+    "id": 2,
+    "state": "APPROVED",
+    "user": {
+      "login": "alex",
+      "email": "alex@example.com"
+    }
+  },
+  {
+    "id": 3,
+    "state": "CHANGES_REQUESTED",
+    "user": {
+      "login": "pat",
+      "email": "pat@example.com"
+    }
+  },
+  {
+    "id": 4,
+    "state": "APPROVED",
+    "user": {
+      "login": "jamie",
+      "email": "jamie@example.com"
+    }
+  },
+  {
+    "id": 5,
+    "state": "APPROVED",
+    "user": {
+      "login": "alex",
+      "email": "alex@example.com"
+    }
+  }
+]
