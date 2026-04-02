@@ -1,0 +1,23 @@
+{
+  "name": "git-blame-blame",
+  "version": "0.1.0",
+  "description": "Find who approved the PR that introduced a bug",
+  "type": "module",
+  "bin": { "git-blame-blame": "dist/index.js" },
+  "files": ["dist/", "README.md"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --import tsx/esm src/index.ts",
+    "prepublishOnly": "tsc"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.0",
+    "chalk": "^5.0.0",
+    "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "@types/node": "^20.0.0"
+  }
+}
