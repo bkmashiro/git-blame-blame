@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import type { BlameResult, FileContribution } from './blame.js';
+import type { BusFactorReport, FileBusFactor } from './bus-factor.js';
 import type { PRInfo, Approver } from './github.js';
 import type { TeamContributionRow } from './team.js';
 
@@ -9,6 +10,20 @@ export interface OutputData {
   blame: BlameResult;
   pr: PRInfo | null;
   approvals: Approver[];
+}
+
+interface ExportAuthorRow {
+  email: string;
+  name: string;
+  lines: number;
+  percent: number;
+  lastModified: string;
+}
+
+interface ExportFileRow {
+  file: string;
+  authors: ExportAuthorRow[];
+  busFactor: number;
 }
 
 export function formatOutput(data: OutputData): void {
@@ -119,4 +134,104 @@ export function formatTeamReport(rows: TeamContributionRow[]): void {
   if (rows.length === 0) {
     console.log('No matching contributions found.');
   }
+}
+
+function toExportRows(contributions: FileContribution[]): ExportFileRow[] {
+  const grouped = new Map<string, FileContribution[]>();
+
+  for (const contribution of contributions) {
+    const rows = grouped.get(contribution.filePath) ?? [];
+    rows.push(contribution);
+    grouped.set(contribution.filePath, rows);
+  }
+
+  return Array.from(grouped.entries())
+    .map(([file, rows]) => {
+      const totalLines = rows.reduce((sum, row) => sum + row.lines, 0);
+      const authors = rows
+        .map((row) => ({
+          email: row.authorEmail,
+          name: row.authorName,
+          lines: row.lines,
+          percent: totalLines === 0 ? 0 : Math.round((row.lines / totalLines) * 100),
+          lastModified: row.lastModified,
+        }))
+        .sort((left, right) => right.lines - left.lines || left.email.localeCompare(right.email));
+
+      return {
+        file,
+        authors,
+        busFactor: authors.filter((author) => author.percent > 20).length,
+      };
+    })
+    .sort((left, right) => left.file.localeCompare(right.file));
+}
+
+function formatAuthorShare(author: { name: string; lines: number; percent: number }): string {
+  return `${author.name} ${author.percent}%`;
+}
+
+function formatMaintainers(file: FileBusFactor): string {
+  if (file.busFactor === 1) {
+    const [owner] = file.maintainers;
+    return `only ${owner.name} maintains this (${file.totalLines} lines)`;
+  }
+
+  return file.maintainers.map(formatAuthorShare).join(file.busFactor === 2 ? ' + ' : ', ');
+}
+
+export function formatBusFactorReport(report: BusFactorReport): void {
+  console.log('Bus Factor Analysis:');
+  console.log();
+
+  console.log(`${chalk.red('Critical')} ${chalk.dim('(bus factor = 1):')}`);
+  if (report.criticalFiles.length === 0) {
+    console.log('  None');
+  } else {
+    for (const file of report.criticalFiles) {
+      console.log(`  ${file.filePath.padEnd(24)} ${formatMaintainers(file)}`);
+    }
+  }
+  console.log();
+
+  console.log(`${chalk.yellow('At Risk')} ${chalk.dim('(bus factor = 2):')}`);
+  if (report.atRiskFiles.length === 0) {
+    console.log('  None');
+  } else {
+    for (const file of report.atRiskFiles) {
+      console.log(`  ${file.filePath.padEnd(24)} ${formatMaintainers(file)}`);
+    }
+  }
+  console.log();
+
+  console.log(`${chalk.green('Healthy')} ${chalk.dim('(bus factor >= 3):')}`);
+  if (report.healthyFiles.length === 0) {
+    console.log('  None');
+  } else {
+    for (const file of report.healthyFiles) {
+      console.log(`  ${file.filePath.padEnd(24)} ${formatMaintainers(file)}`);
+    }
+  }
+  console.log();
+
+  console.log(`Overall repo bus factor: ${report.overallBusFactor}`);
+  if (report.recommendation) {
+    console.log(`Recommendation: ${report.recommendation}`);
+  }
+}
+
+export function formatExportJson(contributions: FileContribution[]): void {
+  console.log(JSON.stringify(toExportRows(contributions), null, 2));
+}
+
+export function formatExportCsv(contributions: FileContribution[]): void {
+  const lines = ['file,author,lines,percent,lastModified'];
+
+  for (const row of toExportRows(contributions)) {
+    for (const author of row.authors) {
+      lines.push([row.file, author.email, String(author.lines), String(author.percent), author.lastModified].join(','));
+    }
+  }
+
+  console.log(lines.join('\n'));
 }

@@ -14,6 +14,7 @@ export interface AuthorContribution {
   authorEmail: string;
   authorName: string;
   lines: number;
+  lastModified: string;
 }
 
 export interface FileContribution extends AuthorContribution {
@@ -86,6 +87,7 @@ export function parseBlamePorcelainOutput(output: string): AuthorContribution[] 
   const contributions = new Map<string, AuthorContribution>();
   let currentAuthorName = '';
   let currentAuthorEmail = '';
+  let currentAuthorDate = '';
 
   for (const line of output.split('\n')) {
     if (line.startsWith('author ')) {
@@ -95,6 +97,13 @@ export function parseBlamePorcelainOutput(output: string): AuthorContribution[] 
 
     if (line.startsWith('author-mail ')) {
       currentAuthorEmail = line.slice('author-mail '.length).replace(/^<|>$/g, '');
+      continue;
+    }
+
+    if (line.startsWith('author-time ')) {
+      currentAuthorDate = new Date(Number.parseInt(line.slice('author-time '.length), 10) * 1000)
+        .toISOString()
+        .slice(0, 10);
       continue;
     }
 
@@ -112,6 +121,9 @@ export function parseBlamePorcelainOutput(output: string): AuthorContribution[] 
       if (!existing.authorName && currentAuthorName) {
         existing.authorName = currentAuthorName;
       }
+      if (currentAuthorDate && currentAuthorDate > existing.lastModified) {
+        existing.lastModified = currentAuthorDate;
+      }
       continue;
     }
 
@@ -119,6 +131,7 @@ export function parseBlamePorcelainOutput(output: string): AuthorContribution[] 
       authorEmail: currentAuthorEmail,
       authorName: currentAuthorName,
       lines: 1,
+      lastModified: currentAuthorDate,
     });
   }
 
@@ -212,6 +225,7 @@ export function collectFileContributions(
         authorEmail: contribution.authorEmail,
         authorName: contribution.authorName,
         lines: contribution.lines,
+        lastModified: contribution.lastModified,
         changeType,
       });
     }

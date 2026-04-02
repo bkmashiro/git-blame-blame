@@ -27,6 +27,8 @@ export GITHUB_TOKEN=ghp_your_token_here
 
 ```bash
 git-blame-blame <file:line> [options]
+git-blame-blame <tracked-path> --bus-factor
+git-blame-blame <tracked-path> --export csv
 ```
 
 ### Examples
@@ -71,6 +73,28 @@ $ git-blame-blame src/auth.js:42 --json
 }
 ```
 
+```
+$ git-blame-blame src/ --bus-factor
+Bus Factor Analysis:
+
+Critical (bus factor = 1):
+  src/core/engine.ts      only alice maintains this (847 lines)
+
+At Risk (bus factor = 2):
+  src/api/routes.ts       carol 60% + alice 40%
+
+Healthy (bus factor >= 3):
+  src/utils/helpers.ts    alice 40%, bob 35%, carol 25%
+
+Overall repo bus factor: 1
+Recommendation: alice is the single point of failure for 1 file
+```
+
+```
+$ git-blame-blame src/ --export csv > blame-report.csv
+$ git-blame-blame src/ --export json > blame-report.json
+```
+
 ### Options
 
 | Flag | Description |
@@ -78,6 +102,10 @@ $ git-blame-blame src/auth.js:42 --json
 | `-t, --token <token>` | GitHub personal access token (overrides `GITHUB_TOKEN`) |
 | `-r, --repo <owner/repo>` | GitHub repository (auto-detected from git remote if omitted) |
 | `--json` | Output results as JSON |
+| `--since <date>` | Limit tracked-path analysis to code added or modified since this date |
+| `--team <file>` | Show tracked-path contributions grouped by a team roster |
+| `--bus-factor` | Show per-file bus factor using contributors with more than 20% of blamed lines |
+| `--export <csv|json>` | Export tracked-path blame analysis as structured data |
 | `-V, --version` | Show version number |
 | `-h, --help` | Show help |
 

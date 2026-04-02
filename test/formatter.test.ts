@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatJson, formatOutput, formatSinceReport, formatTeamReport, type OutputData } from '../src/formatter.ts';
+import {
+  formatBusFactorReport,
+  formatExportCsv,
+  formatExportJson,
+  formatJson,
+  formatOutput,
+  formatSinceReport,
+  formatTeamReport,
+  type OutputData,
+} from '../src/formatter.ts';
+import { analyzeBusFactor } from '../src/bus-factor.ts';
 
 const baseData: OutputData = {
   file: 'src/index.ts',
@@ -155,4 +165,156 @@ test('formatTeamReport renders the contribution table', () => {
   assert.match(output, /Team contribution report:/);
   assert.match(output, /alice@example.com/);
   assert.match(output, /\[external\]/);
+});
+
+test('formatBusFactorReport renders grouped severity sections and recommendation', () => {
+  const output = captureLogs(() =>
+    formatBusFactorReport(
+      analyzeBusFactor([
+        {
+          filePath: 'src/core/engine.ts',
+          authorEmail: 'alice@example.com',
+          authorName: 'alice',
+          lines: 80,
+          lastModified: '2024-06-10',
+          changeType: 'modified',
+        },
+        {
+          filePath: 'src/core/engine.ts',
+          authorEmail: 'bob@example.com',
+          authorName: 'bob',
+          lines: 20,
+          lastModified: '2024-06-09',
+          changeType: 'modified',
+        },
+        {
+          filePath: 'src/api/routes.ts',
+          authorEmail: 'carol@example.com',
+          authorName: 'carol',
+          lines: 60,
+          lastModified: '2024-06-10',
+          changeType: 'modified',
+        },
+        {
+          filePath: 'src/api/routes.ts',
+          authorEmail: 'alice@example.com',
+          authorName: 'alice',
+          lines: 40,
+          lastModified: '2024-06-09',
+          changeType: 'modified',
+        },
+        {
+          filePath: 'src/utils/helpers.ts',
+          authorEmail: 'alice@example.com',
+          authorName: 'alice',
+          lines: 40,
+          lastModified: '2024-06-08',
+          changeType: 'modified',
+        },
+        {
+          filePath: 'src/utils/helpers.ts',
+          authorEmail: 'bob@example.com',
+          authorName: 'bob',
+          lines: 35,
+          lastModified: '2024-06-07',
+          changeType: 'modified',
+        },
+        {
+          filePath: 'src/utils/helpers.ts',
+          authorEmail: 'carol@example.com',
+          authorName: 'carol',
+          lines: 25,
+          lastModified: '2024-06-06',
+          changeType: 'modified',
+        },
+      ])
+    )
+  );
+
+  assert.match(output, /Bus Factor Analysis:/);
+  assert.match(output, /src\/core\/engine\.ts/);
+  assert.match(output, /only alice maintains this \(100 lines\)/);
+  assert.match(output, /carol 60% \+ alice 40%/);
+  assert.match(output, /alice 40%, bob 35%, carol 25%/);
+  assert.match(output, /Overall repo bus factor: 1/);
+  assert.match(output, /Recommendation: alice is the single point of failure for 1 file/);
+});
+
+test('formatExportJson emits file-level authors and bus factor', () => {
+  const output = captureLogs(() =>
+    formatExportJson([
+      {
+        filePath: 'src/api.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 6,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+      {
+        filePath: 'src/api.ts',
+        authorEmail: 'bob@example.com',
+        authorName: 'Bob',
+        lines: 4,
+        lastModified: '2024-06-11',
+        changeType: 'modified',
+      },
+    ])
+  );
+  const parsed = JSON.parse(output);
+
+  assert.deepEqual(parsed, [
+    {
+      file: 'src/api.ts',
+      authors: [
+        {
+          email: 'alice@example.com',
+          name: 'Alice',
+          lines: 6,
+          percent: 60,
+          lastModified: '2024-06-10',
+        },
+        {
+          email: 'bob@example.com',
+          name: 'Bob',
+          lines: 4,
+          percent: 40,
+          lastModified: '2024-06-11',
+        },
+      ],
+      busFactor: 2,
+    },
+  ]);
+});
+
+test('formatExportCsv emits one row per file author contribution', () => {
+  const output = captureLogs(() =>
+    formatExportCsv([
+      {
+        filePath: 'src/api.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 6,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+      {
+        filePath: 'src/api.ts',
+        authorEmail: 'bob@example.com',
+        authorName: 'Bob',
+        lines: 4,
+        lastModified: '2024-06-11',
+        changeType: 'modified',
+      },
+    ])
+  );
+
+  assert.equal(
+    output,
+    [
+      'file,author,lines,percent,lastModified',
+      'src/api.ts,alice@example.com,6,60,2024-06-10',
+      'src/api.ts,bob@example.com,4,40,2024-06-11',
+    ].join('\n')
+  );
 });

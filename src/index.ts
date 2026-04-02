@@ -6,8 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Octokit } from '@octokit/rest';
 import { blameFile, collectFileContributions } from './blame.js';
+import { analyzeBusFactor } from './bus-factor.js';
 import { getRepoInfo, getPRForCommit, getApprovals } from './github.js';
-import { formatOutput, formatJson, formatSinceReport, formatTeamReport } from './formatter.js';
+import {
+  formatBusFactorReport,
+  formatExportCsv,
+  formatExportJson,
+  formatOutput,
+  formatJson,
+  formatSinceReport,
+  formatTeamReport,
+} from './formatter.js';
 import { aggregateTeamContributions, loadTeamFile } from './team.js';
 
 const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
@@ -22,25 +31,52 @@ program
   .option('-r, --repo <owner/repo>', 'GitHub repository (auto-detected from git remote if omitted)')
   .option('--since <date>', 'Only show blame entries for code added or modified since this date')
   .option('--team <file>', 'Load a team roster JSON or CSV file and show a contribution distribution')
+  .option('--bus-factor', 'Analyze file ownership concentration for a tracked file or directory path')
+  .option('--export <format>', 'Export tracked-path blame analysis as csv or json')
   .option('--json', 'Output as JSON')
   .action(
     async (
       target: string,
-      options: { token?: string; repo?: string; json?: boolean; since?: string; team?: string }
+      options: {
+        token?: string;
+        repo?: string;
+        json?: boolean;
+        since?: string;
+        team?: string;
+        busFactor?: boolean;
+        export?: string;
+      }
     ) => {
       const colonIdx = target.lastIndexOf(':');
       const lineStr = colonIdx === -1 ? '' : target.substring(colonIdx + 1);
       const line = Number.parseInt(lineStr, 10);
       const isFileLineTarget = colonIdx !== -1 && !Number.isNaN(line) && line >= 1;
+      const exportFormat = options.export?.toLowerCase();
+      const hasTrackedPathMode = Boolean(options.team || options.since || options.busFactor || exportFormat);
 
-      if (options.team || (!isFileLineTarget && options.since)) {
+      if (exportFormat && exportFormat !== 'csv' && exportFormat !== 'json') {
+        console.error('Error: --export must be one of: csv, json');
+        process.exit(1);
+      }
+
+      if (hasTrackedPathMode) {
         if (options.json) {
           console.error('Error: --json is only supported for <file:line> lookups');
           process.exit(1);
         }
 
-        if (isFileLineTarget && options.team) {
-          console.error('Error: --team expects a tracked file or directory path, not <file:line>');
+        const outputModeCount = [Boolean(options.team), Boolean(options.busFactor), Boolean(exportFormat)].filter(
+          Boolean
+        ).length;
+        if (outputModeCount > 1) {
+          console.error('Error: choose only one of --team, --bus-factor, or --export');
+          process.exit(1);
+        }
+
+        if (isFileLineTarget) {
+          console.error(
+            'Error: --since, --team, --bus-factor, and --export expect a tracked file or directory path, not <file:line>'
+          );
           process.exit(1);
         }
 
@@ -63,7 +99,27 @@ program
           return;
         }
 
-        formatSinceReport(contributions, options.since as string);
+        if (options.busFactor) {
+          formatBusFactorReport(analyzeBusFactor(contributions));
+          return;
+        }
+
+        if (exportFormat === 'csv') {
+          formatExportCsv(contributions);
+          return;
+        }
+
+        if (exportFormat === 'json') {
+          formatExportJson(contributions);
+          return;
+        }
+
+        if (options.since) {
+          formatSinceReport(contributions, options.since);
+          return;
+        }
+
+        console.error('Error: a tracked path requires one of --since, --team, --bus-factor, or --export');
         return;
       }
 

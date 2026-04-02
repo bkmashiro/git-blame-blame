@@ -84,20 +84,23 @@ test('parseBlamePorcelainOutput counts blamed lines per author', () => {
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
     'author Alice',
     'author-mail <alice@example.com>',
+    'author-time 1717977600',
     '\tconst one = 1;',
     'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 2 2 1',
     'author Bob',
     'author-mail <bob@example.com>',
+    'author-time 1718064000',
     '\tconst two = 2;',
     'cccccccccccccccccccccccccccccccccccccccc 3 3 1',
     'author Alice',
     'author-mail <alice@example.com>',
+    'author-time 1718150400',
     '\tconst three = 3;',
   ].join('\n');
 
   assert.deepEqual(parseBlamePorcelainOutput(output), [
-    { authorEmail: 'alice@example.com', authorName: 'Alice', lines: 2 },
-    { authorEmail: 'bob@example.com', authorName: 'Bob', lines: 1 },
+    { authorEmail: 'alice@example.com', authorName: 'Alice', lines: 2, lastModified: '2024-06-12' },
+    { authorEmail: 'bob@example.com', authorName: 'Bob', lines: 1, lastModified: '2024-06-11' },
   ]);
 });
 
@@ -110,10 +113,12 @@ test('collectFileContributions filters blame results to authors active since the
         'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
         'author Alice',
         'author-mail <alice@example.com>',
+        'author-time 1717977600',
         '\tconst one = 1;',
         'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 2 2 1',
         'author Carol',
         'author-mail <carol@example.com>',
+        'author-time 1718064000',
         '\tconst two = 2;',
       ].join('\n'),
     ],
@@ -125,6 +130,7 @@ test('collectFileContributions filters blame results to authors active since the
         'dddddddddddddddddddddddddddddddddddddddd 1 1 1',
         'author Bob',
         'author-mail <bob@example.com>',
+        'author-time 1718150400',
         '\tconst auth = true;',
       ].join('\n'),
     ],
@@ -149,6 +155,7 @@ test('collectFileContributions filters blame results to authors active since the
       authorEmail: 'alice@example.com',
       authorName: 'Alice',
       lines: 1,
+      lastModified: '2024-06-10',
       changeType: 'added',
     },
     {
@@ -156,6 +163,7 @@ test('collectFileContributions filters blame results to authors active since the
       authorEmail: 'bob@example.com',
       authorName: 'Bob',
       lines: 1,
+      lastModified: '2024-06-12',
       changeType: 'modified',
     },
   ]);
