@@ -40,6 +40,12 @@ test('parseGitLogOutput throws when no commit line is present', () => {
   assert.throws(() => parseGitLogOutput('fatal: no such path src/missing.ts'), /Could not parse git log output/);
 });
 
+test('parseGitLogOutput throws when the commit line has no parseable date', () => {
+  const output = 'f'.repeat(40) + ' dev@example.com Dev User not-a-date Fix parser edge case';
+
+  assert.throws(() => parseGitLogOutput(output), /Could not parse date from git log output/);
+});
+
 test('blameFile throws when the target file does not exist', () => {
   assert.throws(() => blameFile('/definitely/missing/file.ts', 1), /ENOENT/);
 });
@@ -48,4 +54,11 @@ test('extractLineNumberFromBlameOutput returns the blamed line number', () => {
   const output = '3b18e512 (Dev User 2024-06-10  27) const answer = 42;';
 
   assert.equal(extractLineNumberFromBlameOutput(output), 27);
+});
+
+test('extractLineNumberFromBlameOutput throws when the blame output is malformed', () => {
+  assert.throws(
+    () => extractLineNumberFromBlameOutput('malformed blame output'),
+    /Could not parse line number from blame output/
+  );
 });

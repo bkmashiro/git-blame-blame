@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 import { program } from 'commander';
 import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { Octokit } from '@octokit/rest';
 import { blameFile } from './blame.js';
 import { getRepoInfo, getPRForCommit, getApprovals } from './github.js';
 import { formatOutput, formatJson } from './formatter.js';
 
+const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+const packageVersion = JSON.parse(readFileSync(packageJsonPath, 'utf-8')).version as string;
+
 program
   .name('git-blame-blame')
   .description('Find who approved the PR that introduced a buggy line of code')
-  .version('0.1.0')
+  .version(packageVersion)
   .argument('<file:line>', 'File and line number to blame (e.g. src/auth.js:42)')
   .option('-t, --token <token>', 'GitHub personal access token')
   .option('-r, --repo <owner/repo>', 'GitHub repository (auto-detected from git remote if omitted)')

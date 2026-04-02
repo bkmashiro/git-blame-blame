@@ -77,3 +77,28 @@ test('formatOutput handles no approvers gracefully', () => {
 
   assert.match(output, /No approvals found/);
 });
+
+test('formatOutput handles results with no associated PR', () => {
+  const output = captureLogs(() =>
+    formatOutput({
+      ...baseData,
+      pr: null,
+      approvals: [],
+    })
+  );
+
+  assert.match(output, /\(no associated PR found\)/);
+});
+
+test('formatJson emits a null PR when none is associated with the commit', () => {
+  const output = captureLogs(() =>
+    formatJson({
+      ...baseData,
+      pr: null,
+      approvals: [],
+    })
+  );
+  const parsed = JSON.parse(output);
+
+  assert.equal(parsed.pr, null);
+});
