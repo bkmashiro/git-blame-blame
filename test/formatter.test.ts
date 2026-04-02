@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatJson, formatOutput, type OutputData } from '../src/formatter.ts';
+import { formatJson, formatOutput, formatSinceReport, formatTeamReport, type OutputData } from '../src/formatter.ts';
 
 const baseData: OutputData = {
   file: 'src/index.ts',
@@ -101,4 +101,58 @@ test('formatJson emits a null PR when none is associated with the commit', () =>
   const parsed = JSON.parse(output);
 
   assert.equal(parsed.pr, null);
+});
+
+test('formatSinceReport shows one row per file using the top matching contributor', () => {
+  const output = captureLogs(() =>
+    formatSinceReport(
+      [
+        {
+          filePath: 'src/api.ts',
+          authorEmail: 'alice@example.com',
+          authorName: 'Alice',
+          lines: 5,
+          changeType: 'added',
+        },
+        {
+          filePath: 'src/api.ts',
+          authorEmail: 'bob@example.com',
+          authorName: 'Bob',
+          lines: 2,
+          changeType: 'added',
+        },
+      ],
+      '2024-01-01'
+    )
+  );
+
+  assert.match(output, /Showing blame for changes since 2024-01-01/);
+  assert.match(output, /src\/api\.ts/);
+  assert.match(output, /Alice/);
+  assert.doesNotMatch(output, /Bob/);
+});
+
+test('formatTeamReport renders the contribution table', () => {
+  const output = captureLogs(() =>
+    formatTeamReport([
+      {
+        label: 'alice@example.com',
+        lines: 12,
+        files: 3,
+        percent: 60,
+        bar: '############',
+      },
+      {
+        label: '[external]',
+        lines: 8,
+        files: 2,
+        percent: 40,
+        bar: '########',
+      },
+    ])
+  );
+
+  assert.match(output, /Team contribution report:/);
+  assert.match(output, /alice@example.com/);
+  assert.match(output, /\[external\]/);
 });

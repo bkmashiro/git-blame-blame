@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { blameFile, extractLineNumberFromBlameOutput, parseGitLogOutput } from '../src/blame.ts';
+import {
+  blameFile,
+  collectFileContributions,
+  extractLineNumberFromBlameOutput,
+  parseBlamePorcelainOutput,
+  parseGitLogOutput,
+  parseRecentAuthorsOutput,
+} from '../src/blame.ts';
 
 test('parseGitLogOutput extracts commit hash, author email, and subject', () => {
   const output = [
@@ -61,4 +68,95 @@ test('extractLineNumberFromBlameOutput throws when the blame output is malformed
     () => extractLineNumberFromBlameOutput('malformed blame output'),
     /Could not parse line number from blame output/
   );
+});
+
+test('parseRecentAuthorsOutput extracts email and author name pairs', () => {
+  const result = parseRecentAuthorsOutput('alice@example.com\tAlice\nbob@example.com\tBob');
+
+  assert.deepEqual(result, [
+    { email: 'alice@example.com', name: 'Alice' },
+    { email: 'bob@example.com', name: 'Bob' },
+  ]);
+});
+
+test('parseBlamePorcelainOutput counts blamed lines per author', () => {
+  const output = [
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+    'author Alice',
+    'author-mail <alice@example.com>',
+    '\tconst one = 1;',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 2 2 1',
+    'author Bob',
+    'author-mail <bob@example.com>',
+    '\tconst two = 2;',
+    'cccccccccccccccccccccccccccccccccccccccc 3 3 1',
+    'author Alice',
+    'author-mail <alice@example.com>',
+    '\tconst three = 3;',
+  ].join('\n');
+
+  assert.deepEqual(parseBlamePorcelainOutput(output), [
+    { authorEmail: 'alice@example.com', authorName: 'Alice', lines: 2 },
+    { authorEmail: 'bob@example.com', authorName: 'Bob', lines: 1 },
+  ]);
+});
+
+test('collectFileContributions filters blame results to authors active since the requested date', () => {
+  const outputs = new Map<string, string>([
+    ["git ls-files -- 'src/'", 'src/api.ts\nsrc/auth.ts'],
+    [
+      "git blame --line-porcelain --since='2024-01-01' -- 'src/api.ts'",
+      [
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+        'author Alice',
+        'author-mail <alice@example.com>',
+        '\tconst one = 1;',
+        'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 2 2 1',
+        'author Carol',
+        'author-mail <carol@example.com>',
+        '\tconst two = 2;',
+      ].join('\n'),
+    ],
+    ["git log --since='2024-01-01' --diff-filter=AM --format='%ae\t%an' -- 'src/api.ts'", 'alice@example.com\tAlice'],
+    ["git log --since='2024-01-01' --diff-filter=A --format=%H -1 -- 'src/api.ts'", 'new-sha'],
+    [
+      "git blame --line-porcelain --since='2024-01-01' -- 'src/auth.ts'",
+      [
+        'dddddddddddddddddddddddddddddddddddddddd 1 1 1',
+        'author Bob',
+        'author-mail <bob@example.com>',
+        '\tconst auth = true;',
+      ].join('\n'),
+    ],
+    ["git log --since='2024-01-01' --diff-filter=AM --format='%ae\t%an' -- 'src/auth.ts'", 'bob@example.com\tBob'],
+    ["git log --since='2024-01-01' --diff-filter=A --format=%H -1 -- 'src/auth.ts'", ''],
+  ]);
+
+  const result = collectFileContributions('src/', {
+    since: '2024-01-01',
+    exec: (command) => {
+      const output = outputs.get(command);
+      if (output === undefined) {
+        throw new Error(`Unexpected command: ${command}`);
+      }
+      return output;
+    },
+  });
+
+  assert.deepEqual(result, [
+    {
+      filePath: 'src/api.ts',
+      authorEmail: 'alice@example.com',
+      authorName: 'Alice',
+      lines: 1,
+      changeType: 'added',
+    },
+    {
+      filePath: 'src/auth.ts',
+      authorEmail: 'bob@example.com',
+      authorName: 'Bob',
+      lines: 1,
+      changeType: 'modified',
+    },
+  ]);
 });

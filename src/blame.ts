@@ -10,6 +10,27 @@ export interface BlameResult {
   lineContent: string;
 }
 
+export interface AuthorContribution {
+  authorEmail: string;
+  authorName: string;
+  lines: number;
+}
+
+export interface FileContribution extends AuthorContribution {
+  filePath: string;
+  changeType: 'added' | 'modified';
+}
+
+export interface ContributionReportOptions {
+  since?: string;
+  exec?: (command: string) => string;
+}
+
+interface RecentAuthor {
+  email: string;
+  name: string;
+}
+
 export function parseGitLogOutput(output: string): Omit<BlameResult, 'lineContent'> {
   const lines = output.split('\n');
   const commitLine = lines.find((line) => /^[0-9a-f]{40}\s/.test(line));
@@ -46,7 +67,165 @@ export function extractLineNumberFromBlameOutput(output: string): number {
   return Number.parseInt(match[1], 10);
 }
 
-export function blameFile(filePath: string, line: number): BlameResult {
+export function parseRecentAuthorsOutput(output: string): RecentAuthor[] {
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [email, name] = line.split('\t');
+      if (!email || !name) {
+        throw new Error(`Could not parse recent author output: ${line}`);
+      }
+
+      return { email, name };
+    });
+}
+
+export function parseBlamePorcelainOutput(output: string): AuthorContribution[] {
+  const contributions = new Map<string, AuthorContribution>();
+  let currentAuthorName = '';
+  let currentAuthorEmail = '';
+
+  for (const line of output.split('\n')) {
+    if (line.startsWith('author ')) {
+      currentAuthorName = line.slice('author '.length);
+      continue;
+    }
+
+    if (line.startsWith('author-mail ')) {
+      currentAuthorEmail = line.slice('author-mail '.length).replace(/^<|>$/g, '');
+      continue;
+    }
+
+    if (!line.startsWith('\t')) {
+      continue;
+    }
+
+    if (!currentAuthorEmail) {
+      throw new Error('Could not parse author email from git blame output');
+    }
+
+    const existing = contributions.get(currentAuthorEmail);
+    if (existing) {
+      existing.lines += 1;
+      if (!existing.authorName && currentAuthorName) {
+        existing.authorName = currentAuthorName;
+      }
+      continue;
+    }
+
+    contributions.set(currentAuthorEmail, {
+      authorEmail: currentAuthorEmail,
+      authorName: currentAuthorName,
+      lines: 1,
+    });
+  }
+
+  return Array.from(contributions.values()).sort((left, right) => right.lines - left.lines);
+}
+
+function runGit(command: string): string {
+  return execSync(command, { encoding: 'utf-8' }).trim();
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function getTrackedFiles(targetPath: string, exec: (command: string) => string): string[] {
+  const output = exec(`git ls-files -- ${shellQuote(targetPath)}`);
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function getRecentAuthors(
+  filePath: string,
+  since: string,
+  exec: (command: string) => string
+): RecentAuthor[] {
+  const format = '%ae\t%an';
+  const output = exec(
+    `git log --since=${shellQuote(since)} --diff-filter=AM --format=${shellQuote(format)} -- ${shellQuote(filePath)}`
+  );
+
+  if (!output) {
+    return [];
+  }
+
+  const deduped = new Map<string, RecentAuthor>();
+  for (const author of parseRecentAuthorsOutput(output)) {
+    deduped.set(author.email, author);
+  }
+  return Array.from(deduped.values());
+}
+
+function getChangeType(filePath: string, since: string, exec: (command: string) => string): 'added' | 'modified' {
+  const output = exec(
+    `git log --since=${shellQuote(since)} --diff-filter=A --format=%H -1 -- ${shellQuote(filePath)}`
+  );
+  return output ? 'added' : 'modified';
+}
+
+export function collectFileContributions(
+  targetPath: string,
+  options: ContributionReportOptions = {}
+): FileContribution[] {
+  const exec = options.exec ?? runGit;
+  const trackedFiles = getTrackedFiles(targetPath, exec);
+
+  if (trackedFiles.length === 0) {
+    throw new Error(`No tracked files found for ${targetPath}`);
+  }
+
+  const results: FileContribution[] = [];
+
+  for (const filePath of trackedFiles) {
+    const blameCommand = options.since
+      ? `git blame --line-porcelain --since=${shellQuote(options.since)} -- ${shellQuote(filePath)}`
+      : `git blame --line-porcelain -- ${shellQuote(filePath)}`;
+    const blameOutput = exec(blameCommand);
+
+    if (!blameOutput) {
+      continue;
+    }
+
+    let contributions = parseBlamePorcelainOutput(blameOutput);
+    let changeType: 'added' | 'modified' = 'modified';
+
+    if (options.since) {
+      const recentAuthors = getRecentAuthors(filePath, options.since, exec);
+      if (recentAuthors.length === 0) {
+        continue;
+      }
+
+      const recentEmails = new Set(recentAuthors.map((author) => author.email));
+      contributions = contributions.filter((contribution) => recentEmails.has(contribution.authorEmail));
+      changeType = getChangeType(filePath, options.since, exec);
+    }
+
+    for (const contribution of contributions) {
+      results.push({
+        filePath,
+        authorEmail: contribution.authorEmail,
+        authorName: contribution.authorName,
+        lines: contribution.lines,
+        changeType,
+      });
+    }
+  }
+
+  return results.sort((left, right) => {
+    if (left.filePath === right.filePath) {
+      return right.lines - left.lines;
+    }
+    return left.filePath.localeCompare(right.filePath);
+  });
+}
+
+export function blameFile(filePath: string, line: number, since?: string): BlameResult {
   // Read the actual line content from the file
   const fileContent = readFileSync(filePath, 'utf-8');
   const lines = fileContent.split('\n');
@@ -54,7 +233,9 @@ export function blameFile(filePath: string, line: number): BlameResult {
 
   // Run git log to get commit info for the specific line
   const format = '%H %ae %an %ad %s';
-  const gitCmd = `git log -L ${line},${line}:${filePath} --follow -1 --format="${format}" --date=short`;
+  const gitCmd = since
+    ? `git log --since=${shellQuote(since)} -L ${line},${line}:${filePath} --follow -1 --format="${format}" --date=short`
+    : `git log -L ${line},${line}:${filePath} --follow -1 --format="${format}" --date=short`;
 
   let output: string;
   try {

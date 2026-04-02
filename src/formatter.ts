@@ -1,6 +1,7 @@
 import chalk from 'chalk';
-import type { BlameResult } from './blame.js';
+import type { BlameResult, FileContribution } from './blame.js';
 import type { PRInfo, Approver } from './github.js';
+import type { TeamContributionRow } from './team.js';
 
 export interface OutputData {
   file: string;
@@ -75,4 +76,47 @@ export function formatJson(data: OutputData): void {
   };
 
   console.log(JSON.stringify(output, null, 2));
+}
+
+export function formatSinceReport(contributions: FileContribution[], since: string): void {
+  const topByFile = new Map<string, FileContribution>();
+
+  for (const contribution of contributions) {
+    const existing = topByFile.get(contribution.filePath);
+    if (!existing || contribution.lines > existing.lines) {
+      topByFile.set(contribution.filePath, contribution);
+    }
+  }
+
+  const rows = Array.from(topByFile.values()).sort((left, right) => right.lines - left.lines);
+
+  console.log(`Showing blame for changes since ${since}...`);
+  console.log();
+
+  for (const row of rows) {
+    const linesLabel = `${row.lines.toLocaleString()} lines`;
+    console.log(
+      `${row.filePath.padEnd(20)} ${row.authorName.padEnd(12)} ${linesLabel.padEnd(10)} (${row.changeType} since ${since})`
+    );
+  }
+
+  if (rows.length === 0) {
+    console.log('No matching blame entries found.');
+  }
+}
+
+export function formatTeamReport(rows: TeamContributionRow[]): void {
+  console.log('Team contribution report:');
+  console.log();
+  console.log('Member          Lines   Files   %');
+
+  for (const row of rows) {
+    console.log(
+      `${row.label.padEnd(15)} ${row.lines.toLocaleString().padStart(6)}  ${String(row.files).padEnd(5)} ${String(row.percent).padStart(3)}%  ${row.bar}`
+    );
+  }
+
+  if (rows.length === 0) {
+    console.log('No matching contributions found.');
+  }
 }
