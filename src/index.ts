@@ -9,6 +9,12 @@ import { blameFile, collectFileContributions } from './blame.js';
 import { analyzeBusFactor } from './bus-factor.js';
 import { getRepoInfo, getPRForCommit, getApprovals } from './github.js';
 import {
+  getRepoInfo as getGitLabRepoInfo,
+  getPRForCommit as getGitLabPRForCommit,
+  getApprovals as getGitLabApprovals,
+  isGitLabRemote,
+} from './gitlab.js';
+import {
   formatBusFactorReport,
   formatExportCsv,
   formatExportJson,
@@ -27,8 +33,8 @@ program
   .description('Find who approved the PR that introduced a buggy line of code')
   .version(packageVersion)
   .argument('<target>', 'File:line for GitHub blame lookup, or a tracked path for local reports')
-  .option('-t, --token <token>', 'GitHub personal access token')
-  .option('-r, --repo <owner/repo>', 'GitHub repository (auto-detected from git remote if omitted)')
+  .option('-t, --token <token>', 'GitHub or GitLab personal access token')
+  .option('-r, --repo <owner/repo>', 'GitHub repository or GitLab project path (auto-detected from git remote if omitted)')
   .option('--since <date>', 'Only show blame entries for code added or modified since this date')
   .option('--team <file>', 'Load a team roster JSON or CSV file and show a contribution distribution')
   .option('--bus-factor', 'Analyze file ownership concentration for a tracked file or directory path')
@@ -132,15 +138,6 @@ program
 
       const filePath = target.substring(0, colonIdx);
 
-      // Get GitHub token
-      const token = options.token ?? process.env.GITHUB_TOKEN;
-      if (!token) {
-        console.error(
-          'Error: GitHub token is required. Set GITHUB_TOKEN env var or use --token flag.'
-        );
-        process.exit(1);
-      }
-
       // Step 1: Get blame info
       let blame;
       try {
@@ -150,7 +147,85 @@ program
         process.exit(1);
       }
 
-      // Step 2: Detect owner/repo
+      // Step 2: Detect provider and repo info
+      let remoteUrl: string;
+      try {
+        remoteUrl = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
+      } catch {
+        remoteUrl = '';
+      }
+
+      const useGitLab = isGitLabRemote(remoteUrl);
+
+      if (useGitLab) {
+        // GitLab flow
+        const token = options.token ?? process.env.GITLAB_TOKEN;
+        if (!token) {
+          console.error('Error: GitLab token is required. Set GITLAB_TOKEN env var or use --token flag.');
+          process.exit(1);
+        }
+
+        let projectPath: string;
+        let host: string;
+
+        if (options.repo) {
+          projectPath = options.repo;
+          host = process.env.GITLAB_HOST?.replace(/\/$/, '') ?? 'https://gitlab.com';
+        } else {
+          if (!remoteUrl) {
+            console.error('Error: could not determine git remote URL. Use --repo to specify manually.');
+            process.exit(1);
+          }
+          try {
+            const repoInfo = getGitLabRepoInfo(remoteUrl);
+            projectPath = repoInfo.projectPath;
+            host = repoInfo.host;
+          } catch (err) {
+            console.error(`Error: ${(err as Error).message}`);
+            process.exit(1);
+          }
+        }
+
+        // Set token in env so gitlab.ts fetch helper picks it up
+        process.env.GITLAB_TOKEN = token;
+
+        let pr;
+        try {
+          pr = await getGitLabPRForCommit(projectPath, blame.sha, host);
+        } catch (err) {
+          console.error(`Error: ${(err as Error).message}`);
+          process.exit(1);
+        }
+
+        let approvals: Awaited<ReturnType<typeof getGitLabApprovals>> = [];
+        if (pr) {
+          try {
+            approvals = await getGitLabApprovals(projectPath, pr.number, host);
+          } catch (err) {
+            console.error(`Error: ${(err as Error).message}`);
+            process.exit(1);
+          }
+        }
+
+        const outputData = { file: filePath, line, blame, pr, approvals };
+        if (options.json) {
+          formatJson(outputData);
+        } else {
+          formatOutput(outputData);
+        }
+        return;
+      }
+
+      // GitHub flow
+      const token = options.token ?? process.env.GITHUB_TOKEN;
+      if (!token) {
+        console.error(
+          'Error: GitHub token is required. Set GITHUB_TOKEN env var or use --token flag.'
+        );
+        process.exit(1);
+      }
+
+      // Detect owner/repo
       let owner: string;
       let repo: string;
 
@@ -163,10 +238,7 @@ program
         owner = parts[0];
         repo = parts[1];
       } else {
-        let remoteUrl: string;
-        try {
-          remoteUrl = execSync('git remote get-url origin', { encoding: 'utf-8' }).trim();
-        } catch {
+        if (!remoteUrl) {
           console.error('Error: could not determine git remote URL. Use --repo to specify manually.');
           process.exit(1);
         }
@@ -181,7 +253,7 @@ program
         }
       }
 
-      // Step 3: Init Octokit
+      // Init Octokit
       const octokit = new Octokit({ auth: token });
 
       // Step 4: Get PR for commit

@@ -16,12 +16,22 @@ npm install -g git-blame-blame
 
 ## Requirements
 
-- A GitHub personal access token with `repo` scope
-- Set the `GITHUB_TOKEN` environment variable (or use the `--token` flag)
+- A GitHub or GitLab personal access token
+- Set the appropriate environment variable (or use the `--token` flag)
 
 ```bash
+# GitHub
 export GITHUB_TOKEN=ghp_your_token_here
+
+# GitLab (gitlab.com)
+export GITLAB_TOKEN=glpat_your_token_here
+
+# Self-hosted GitLab
+export GITLAB_HOST=https://gitlab.mycompany.com
+export GITLAB_TOKEN=glpat_your_token_here
 ```
+
+The provider (GitHub vs GitLab) is auto-detected from the git remote URL. No flags needed.
 
 ## Usage
 
@@ -99,8 +109,8 @@ $ git-blame-blame src/ --export json > blame-report.json
 
 | Flag | Description |
 |------|-------------|
-| `-t, --token <token>` | GitHub personal access token (overrides `GITHUB_TOKEN`) |
-| `-r, --repo <owner/repo>` | GitHub repository (auto-detected from git remote if omitted) |
+| `-t, --token <token>` | GitHub or GitLab personal access token (overrides `GITHUB_TOKEN` / `GITLAB_TOKEN`) |
+| `-r, --repo <owner/repo>` | GitHub repository or GitLab project path (auto-detected from git remote if omitted) |
 | `--json` | Output results as JSON |
 | `--since <date>` | Limit tracked-path analysis to code added or modified since this date |
 | `--team <file>` | Show tracked-path contributions grouped by a team roster |
@@ -109,14 +119,28 @@ $ git-blame-blame src/ --export json > blame-report.json
 | `-V, --version` | Show version number |
 | `-h, --help` | Show help |
 
+## GitLab
+
+`git-blame-blame` auto-detects GitLab repos from the git remote URL. For self-hosted instances, set `GITLAB_HOST`:
+
+```bash
+# Self-hosted GitLab
+export GITLAB_HOST=https://gitlab.mycompany.com
+export GITLAB_TOKEN=glpat_your_token_here
+
+git-blame-blame src/auth.js:42
+```
+
+The tool uses the GitLab MR Approvals API (`/api/v4/projects/:id/merge_requests/:iid/approvals`) to find approvers.
+
 ## How it works
 
 `git-blame-blame` runs a 4-step pipeline:
 
 1. **git blame** — Runs `git log -L` on the specified file and line to identify the commit that introduced that line of code.
 2. **Find commit** — Looks up the commit SHA in your repository to get author info, date, and commit message.
-3. **Find PR** — Queries the GitHub API to find which pull request contains that commit.
-4. **Get approvals** — Fetches all reviews for that PR and returns the list of approvers.
+3. **Find PR/MR** — Queries the GitHub or GitLab API to find which pull/merge request contains that commit.
+4. **Get approvals** — Fetches all reviews/approvals for that PR/MR and returns the list of approvers.
 
 ## Development
 
