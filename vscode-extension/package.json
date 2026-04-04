@@ -1,0 +1,123 @@
+{
+  "name": "git-blame-blame-vscode",
+  "displayName": "Git Blame Blame",
+  "description": "Hover any line to see git blame + PR author & reviewers. Sidebar shows full file blame. Supports GitHub and GitLab.",
+  "version": "0.2.0",
+  "publisher": "git-blame-blame",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Other"],
+  "keywords": ["git", "blame", "github", "gitlab", "pr", "review"],
+  "activationEvents": [
+    "onLanguage",
+    "onCommand:gitBlameBlame.blameLine",
+    "onView:gitBlameBlameView"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gitBlameBlame.blameLine",
+        "title": "Git Blame Blame: Who Approved This Line?"
+      },
+      {
+        "command": "gitBlameBlame.blameFile",
+        "title": "Git Blame Blame: Show File Blame in Sidebar",
+        "icon": "$(history)"
+      },
+      {
+        "command": "gitBlameBlame.refreshBlame",
+        "title": "Git Blame Blame: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitBlameBlame.clearCache",
+        "title": "Git Blame Blame: Clear Cache"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "gitBlameBlame.blameLine",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "gitBlameBlame.blameFile",
+          "group": "navigation",
+          "when": "resourceScheme == file"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "gitBlameBlame.refreshBlame",
+          "when": "view == gitBlameBlameView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "views": {
+      "scm": [
+        {
+          "id": "gitBlameBlameView",
+          "name": "Blame Details",
+          "icon": "$(history)",
+          "contextualTitle": "Git Blame Blame"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Git Blame Blame",
+      "properties": {
+        "gitBlameBlame.githubToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "GitHub personal access token. Falls back to `GITHUB_TOKEN` env var."
+        },
+        "gitBlameBlame.gitlabToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "GitLab personal access token. Falls back to `GITLAB_TOKEN` env var."
+        },
+        "gitBlameBlame.gitlabUrl": {
+          "type": "string",
+          "default": "https://gitlab.com",
+          "markdownDescription": "GitLab instance URL (for self-hosted GitLab)."
+        },
+        "gitBlameBlame.enableHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show blame info on hover."
+        },
+        "gitBlameBlame.hoverDelay": {
+          "type": "number",
+          "default": 300,
+          "description": "Delay in ms before fetching PR info on hover (to avoid rate limiting)."
+        },
+        "gitBlameBlame.cliPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional path to the `git-blame-blame` CLI. Falls back to `git-blame-blame` on PATH."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.0.0",
+    "@vscode/vsce": "^3.0.0"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.0.0"
+  }
+}
