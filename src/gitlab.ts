@@ -73,7 +73,7 @@ export async function getPRForCommit(projectPath: string, sha: string, host: str
   } catch (err) {
     const error = err as { status?: number; message?: string };
     if (error.status === 404) return null;
-    throw new Error(`Failed to get MR for commit ${sha}: ${error.message}`);
+    throw new Error(`Failed to get MR for commit ${sha}: ${error.message ?? String(err)}`);
   }
 }
 

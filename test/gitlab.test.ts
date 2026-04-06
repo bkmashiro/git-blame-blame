@@ -211,3 +211,35 @@ test('getApprovals wraps API failures with MR context', async () => {
     restore();
   }
 });
+
+test('getPRForCommit wraps non-404 API failures with commit context', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: false, status: 500, statusText: 'Internal Server Error' }) as never;
+  try {
+    await assert.rejects(
+      () => getPRForCommit('acme/project', 'deadbeef', 'https://gitlab.com'),
+      /Failed to get MR for commit deadbeef/
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('getPRForCommit error message does not contain "undefined" when error has no message field', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw { status: 500 };
+  };
+  try {
+    await assert.rejects(
+      () => getPRForCommit('acme/project', 'deadbeef', 'https://gitlab.com'),
+      (err: Error) => {
+        assert.ok(!err.message.includes('undefined'), `Error message should not contain "undefined": ${err.message}`);
+        assert.match(err.message, /Failed to get MR for commit deadbeef/);
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
