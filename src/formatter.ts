@@ -172,6 +172,10 @@ function formatAuthorShare(author: { name: string; lines: number; percent: numbe
 }
 
 function formatMaintainers(file: FileBusFactor): string {
+  if (file.maintainers.length === 0) {
+    return 'no maintainers';
+  }
+
   if (file.busFactor === 1) {
     const [owner] = file.maintainers;
     return `only ${owner.name} maintains this (${file.totalLines} lines)`;
