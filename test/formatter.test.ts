@@ -287,6 +287,78 @@ test('formatExportJson emits file-level authors and bus factor', () => {
   ]);
 });
 
+test('formatExportJson busFactor excludes authors at exactly the threshold percent', () => {
+  // An author with exactly 20% should NOT count — threshold is strictly greater than
+  const output = captureLogs(() =>
+    formatExportJson([
+      {
+        filePath: 'src/app.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 80,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+      {
+        filePath: 'src/app.ts',
+        authorEmail: 'bob@example.com',
+        authorName: 'Bob',
+        lines: 20,
+        lastModified: '2024-06-11',
+        changeType: 'modified',
+      },
+    ])
+  );
+  const parsed = JSON.parse(output);
+
+  // Alice owns 80% (above threshold), Bob owns exactly 20% (not above) → busFactor = 1
+  assert.equal(parsed[0].busFactor, 1);
+});
+
+test('formatExportJson busFactor counts authors strictly above the threshold', () => {
+  // Both authors above 20% → busFactor = 2
+  const output = captureLogs(() =>
+    formatExportJson([
+      {
+        filePath: 'src/app.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 60,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+      {
+        filePath: 'src/app.ts',
+        authorEmail: 'bob@example.com',
+        authorName: 'Bob',
+        lines: 40,
+        lastModified: '2024-06-11',
+        changeType: 'modified',
+      },
+    ])
+  );
+  const parsed = JSON.parse(output);
+
+  assert.equal(parsed[0].busFactor, 2);
+});
+
+test('formatExportJson busFactor is zero when no author exceeds the threshold', () => {
+  // Five equal contributors at 20% each — none strictly above threshold
+  const contributions = ['alice', 'bob', 'carol', 'dave', 'eve'].map((name, i) => ({
+    filePath: 'src/shared.ts',
+    authorEmail: `${name}@example.com`,
+    authorName: name,
+    lines: 20,
+    lastModified: `2024-06-0${i + 1}`,
+    changeType: 'modified' as const,
+  }));
+
+  const output = captureLogs(() => formatExportJson(contributions));
+  const parsed = JSON.parse(output);
+
+  assert.equal(parsed[0].busFactor, 0);
+});
+
 test('formatExportCsv emits one row per file author contribution', () => {
   const output = captureLogs(() =>
     formatExportCsv([

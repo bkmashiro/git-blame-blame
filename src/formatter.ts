@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import type { BlameResult, FileContribution } from './blame.js';
-import type { BusFactorReport, FileBusFactor } from './bus-factor.js';
+import { BUS_FACTOR_THRESHOLD_PERCENT, type BusFactorReport, type FileBusFactor } from './bus-factor.js';
 import type { PRInfo, Approver } from './github.js';
 import type { TeamContributionRow } from './team.js';
 
@@ -194,7 +194,7 @@ function toExportRows(contributions: FileContribution[]): ExportFileRow[] {
       return {
         file,
         authors,
-        busFactor: authors.filter((author) => author.percent > 20).length,
+        busFactor: authors.filter((author) => author.percent > BUS_FACTOR_THRESHOLD_PERCENT).length,
       };
     })
     .sort((left, right) => left.file.localeCompare(right.file));
