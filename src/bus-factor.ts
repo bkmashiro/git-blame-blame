@@ -66,6 +66,12 @@ export function calculateFileBusFactor(
   };
 }
 
+/**
+ * Analyses file contributions to produce a bus-factor report across all files.
+ * @param contributions - Flat list of per-file, per-author contribution records.
+ * @param thresholdPercent - Minimum ownership percentage for a contributor to count as a maintainer (default 20).
+ * @returns Report with per-file bus factors, overall score, and a remediation recommendation.
+ */
 export function analyzeBusFactor(
   contributions: FileContribution[],
   thresholdPercent = BUS_FACTOR_THRESHOLD_PERCENT
