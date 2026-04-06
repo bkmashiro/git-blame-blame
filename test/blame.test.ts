@@ -200,6 +200,93 @@ test("collectFileContributions quotes file paths containing single quotes", () =
       },
     })
   );
+test('parseGitLogOutput handles author name containing a date-like substring (known mis-fire)', () => {
+  // Author name "Dev 2099-12-31 User" contains a date-like token. The heuristic
+  // treats the *first* date-like token after index 1 as the boundary, so the
+  // real date ("2024-06-10") and everything after it become the subject, and the
+  // author name is incorrectly truncated to "Dev".
+  const output = 'f'.repeat(40) + ' dev@example.com Dev 2099-12-31 User 2024-06-10 Fix something';
+
+  const result = parseGitLogOutput(output);
+
+  // The heuristic misfires: "2099-12-31" is picked as the date, not "2024-06-10".
+  assert.equal(result.date, '2099-12-31');
+  assert.equal(result.authorName, 'Dev');
+  assert.equal(result.subject, 'User 2024-06-10 Fix something');
+});
+
+test('parseGitLogOutput extracts single-word author name', () => {
+  const output = 'a'.repeat(40) + ' bot@ci.example.com Bot 2024-01-15 chore: bump deps';
+
+  const result = parseGitLogOutput(output);
+
+  assert.equal(result.authorName, 'Bot');
+  assert.equal(result.date, '2024-01-15');
+  assert.equal(result.subject, 'chore: bump deps');
+});
+
+test('parseBlamePorcelainOutput returns empty array for empty input', () => {
+  assert.deepEqual(parseBlamePorcelainOutput(''), []);
+});
+
+test('parseBlamePorcelainOutput throws when tab line appears before author-mail', () => {
+  const output = [
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+    'author Alice',
+    // author-mail deliberately omitted
+    'author-time 1717977600',
+    '\tconst one = 1;',
+  ].join('\n');
+
+  assert.throws(() => parseBlamePorcelainOutput(output), /Could not parse author email/);
+});
+
+test('parseBlamePorcelainOutput uses the most recent author-time as lastModified', () => {
+  const output = [
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+    'author Alice',
+    'author-mail <alice@example.com>',
+    'author-time 1717977600', // 2024-06-10
+    '\tline one',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 2 2 1',
+    'author Alice',
+    'author-mail <alice@example.com>',
+    'author-time 1718409600', // 2024-06-15 — later
+    '\tline two',
+  ].join('\n');
+
+  const result = parseBlamePorcelainOutput(output);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].lastModified, '2024-06-15');
+  assert.equal(result[0].lines, 2);
+});
+
+test('parseBlamePorcelainOutput sorts by line count descending', () => {
+  const output = [
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+    'author Bob',
+    'author-mail <bob@example.com>',
+    'author-time 1717977600',
+    '\tline one',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 2 2 1',
+    'author Alice',
+    'author-mail <alice@example.com>',
+    'author-time 1717977600',
+    '\tline two',
+    'cccccccccccccccccccccccccccccccccccccccc 3 3 1',
+    'author Alice',
+    'author-mail <alice@example.com>',
+    'author-time 1717977600',
+    '\tline three',
+  ].join('\n');
+
+  const result = parseBlamePorcelainOutput(output);
+
+  assert.equal(result[0].authorEmail, 'alice@example.com');
+  assert.equal(result[0].lines, 2);
+  assert.equal(result[1].authorEmail, 'bob@example.com');
+  assert.equal(result[1].lines, 1);
 });
 
 test('collectFileContributions filters blame results to authors active since the requested date', () => {

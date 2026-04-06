@@ -33,12 +33,23 @@ interface RecentAuthor {
 }
 
 /**
- * Parses the output of `git log` with a custom format into a BlameResult (minus lineContent).
+ * Parses a single commit entry from `git log --format="%H %ae %an %ad %s" --date=short` output.
  *
- * @param output - Raw stdout from `git log --format="%H %ae %an %ad %s"`.
- * @returns Parsed commit metadata: sha, authorEmail, authorName, date, and subject.
- * @throws {Error} If the output contains no line matching the expected 40-char SHA format.
- * @throws {Error} If the date field cannot be located in the commit line.
+ * The expected format for the commit line is:
+ *   `<40-char sha> <authorEmail> <authorName...> <YYYY-MM-DD> <subject...>`
+ *
+ * The function scans all space-delimited tokens for the first token after index 1 that matches
+ * `YYYY-MM-DD`. Everything between the email and the date is treated as the author name;
+ * everything after the date is treated as the subject.
+ *
+ * **Known limitation**: if an author's name contains a date-like substring (e.g. "Dev 2024-01-01
+ * User"), the heuristic will misidentify that token as the date boundary, truncating the real
+ * author name and producing a wrong subject.
+ *
+ * @param output - Raw stdout from `git log`, which may contain diff hunk headers and other lines
+ *   before the commit line. Non-commit lines are skipped.
+ * @returns Parsed commit metadata without the source line content.
+ * @throws {Error} If no 40-hex-char commit line is found, or if no date token is present.
  */
 export function parseGitLogOutput(output: string): Omit<BlameResult, 'lineContent'> {
   const lines = output.split('\n');
@@ -106,12 +117,36 @@ export function parseRecentAuthorsOutput(output: string): RecentAuthor[] {
 }
 
 /**
- * Parses the output of `git blame --line-porcelain` into per-author line counts.
+ * Parses the output of `git blame --line-porcelain` into per-author contribution totals.
+ *
+ * The porcelain format emits a variable-length block per blamed line:
+ * ```
+ * <sha> <orig-line> <final-line> [<num-lines>]
+ * author <name>
+ * author-mail <<email>>
+ * author-time <unix-timestamp>
+ * ... (other fields) ...
+ * \t<line content>
+ * ```
+ * The parser accumulates `author`, `author-mail`, and `author-time` fields as it encounters them,
+ * then commits the accumulated state to a contribution record when it sees the tab-prefixed
+ * content line. All other lines (the sha header, `committer-*`, `summary`, etc.) are skipped.
+ *
+ * `author-time` is a Unix timestamp in seconds; it is converted to a `YYYY-MM-DD` ISO date.
+ * `author-mail` may be wrapped in angle brackets (`<email@host>`); they are stripped.
+ *
+ * Results are sorted descending by line count. When the same email appears more than once,
+ * line counts are summed and `lastModified` is kept as the maximum observed date.
+ *
+ * **Edge cases**:
+ * - Lines attributed to "Not Committed Yet" (e.g. when `--since` filters out all commits)
+ *   are included under that synthetic author email.
+ * - An empty `output` string produces an empty array without throwing.
+ * - If a tab line is reached before any `author-mail` line has been seen, an error is thrown.
  *
  * @param output - Raw stdout from `git blame --line-porcelain`.
- * @returns Array of `AuthorContribution` objects sorted descending by line count.
- * @throws {Error} If a content line (starting with `\t`) is encountered before any
- *   `author-mail` header has been seen.
+ * @returns Contributions sorted by line count descending.
+ * @throws {Error} If a content line is encountered before an author-mail header.
  */
 export function parseBlamePorcelainOutput(output: string): AuthorContribution[] {
   const contributions = new Map<string, AuthorContribution>();
@@ -172,10 +207,45 @@ function runGit(command: string): string {
   return execSync(command, { encoding: 'utf-8' }).trim();
 }
 
+/**
+ * Wraps `value` in single quotes for safe shell interpolation.
+ *
+ * Any embedded single quotes are escaped using the POSIX idiom `'\''`
+ * (close quote, escaped literal quote, reopen quote), which works in all
+ * POSIX-compatible shells and does not rely on `$'...'` syntax.
+ *
+ * **Limitation**: the result is not safe for use inside double-quoted shell
+ * strings or as a bare value passed to `exec`-family calls that accept arrays.
+ * It is intended solely for constructing single-argument tokens in
+ * shell-parsed command strings.
+ *
+ * @param value - The raw string to quote (e.g. a file path or git ref).
+ * @returns A shell-safe single-quoted string.
+ */
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+/**
+ * Returns the list of files tracked by git under `targetPath`.
+ *
+ * Runs `git ls-files -- <targetPath>` and splits the output on newlines. Empty
+ * lines (including a trailing newline) are filtered out.
+ *
+ * **Silently excludes**:
+ * - Untracked files (not yet staged or committed).
+ * - Files ignored by `.gitignore`.
+ * - Binary files — `git ls-files` lists them but downstream `git blame` calls
+ *   will return empty output for them; those files are then skipped in
+ *   `collectFileContributions`.
+ * - Deleted files that have been removed from the index.
+ *
+ * @param targetPath - A path or glob pattern passed directly to `git ls-files`.
+ *   If the path does not exist or matches nothing, an empty array is returned.
+ * @param exec - Injected command runner (defaults to `execSync` in callers);
+ *   receives the full shell command string and returns stdout.
+ * @returns Relative file paths as reported by git, one per line.
+ */
 function getTrackedFiles(targetPath: string, exec: (command: string) => string): string[] {
   const output = exec(`git ls-files -- ${shellQuote(targetPath)}`);
   return output
