@@ -240,6 +240,52 @@ test('formatBusFactorReport renders grouped severity sections and recommendation
   assert.match(output, /Recommendation: alice is the single point of failure for 1 file/);
 });
 
+test('formatMaintainers via formatBusFactorReport: empty maintainers array does not crash', () => {
+  const output = captureLogs(() =>
+    formatBusFactorReport({
+      files: [],
+      overallBusFactor: 0,
+      criticalFiles: [
+        {
+          filePath: 'src/ghost.ts',
+          totalLines: 0,
+          busFactor: 1,
+          authors: [],
+          maintainers: [],
+        },
+      ],
+      atRiskFiles: [],
+      healthyFiles: [],
+      recommendation: null,
+    })
+  );
+
+  assert.match(output, /no maintainers/);
+});
+
+test('formatMaintainers via formatBusFactorReport: busFactor=2 with single maintainer does not crash', () => {
+  const output = captureLogs(() =>
+    formatBusFactorReport({
+      files: [],
+      overallBusFactor: 0,
+      criticalFiles: [],
+      atRiskFiles: [
+        {
+          filePath: 'src/risky.ts',
+          totalLines: 100,
+          busFactor: 2,
+          authors: [],
+          maintainers: [{ email: 'alice@example.com', name: 'Alice', lines: 100, percent: 100, lastModified: '2024-06-10' }],
+        },
+      ],
+      healthyFiles: [],
+      recommendation: null,
+    })
+  );
+
+  assert.match(output, /Alice 100%/);
+});
+
 test('formatExportJson emits file-level authors and bus factor', () => {
   const output = captureLogs(() =>
     formatExportJson([
