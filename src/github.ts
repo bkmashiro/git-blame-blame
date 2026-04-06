@@ -1,15 +1,7 @@
 import { Octokit } from '@octokit/rest';
-import type { PRInfo, Approver } from './types.js';
+import type { PRInfo, Approver, GitHubRepoInfo } from './types.js';
 
-export type { PRInfo, Approver };
-
-/** GitHub repository coordinates parsed from a remote URL. */
-export interface RepoInfo {
-  /** GitHub organisation or user name. */
-  owner: string;
-  /** Repository name. */
-  repo: string;
-}
+export type { PRInfo, Approver, GitHubRepoInfo as RepoInfo };
 
 /**
  * Extracts the first pull request from a GitHub "commits pulls" API response.
@@ -17,6 +9,7 @@ export interface RepoInfo {
  * @param pulls - Array of pull request objects returned by the GitHub API.
  * @returns The first {@link PRInfo}, or `null` if the array is empty.
  */
+
 export function parsePRFromCommitPullsResponse(
   pulls: Array<{ number: number; title: string; html_url: string }>
 ): PRInfo | null {
@@ -63,7 +56,7 @@ export function parseApprovalsFromReviews(
  * @param remoteUrl - Git remote URL (HTTPS or SSH format).
  * @returns Parsed `owner` and `repo` strings.
  */
-export function getRepoInfo(remoteUrl: string): RepoInfo {
+export function getRepoInfo(remoteUrl: string): GitHubRepoInfo {
   // Support HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
   // Support SSH: git@github.com:owner/repo.git
   const httpsMatch = remoteUrl.match(/https?:\/\/(?:[^@]+@)?github\.com\/([^/]+)\/([^/.]+)/);

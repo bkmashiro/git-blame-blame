@@ -1,22 +1,13 @@
-import type { PRInfo, Approver } from './types.js';
+import type { PRInfo, Approver, GitLabRepoInfo } from './types.js';
 
-export type { PRInfo, Approver };
-
-/** GitLab project coordinates parsed from a remote URL. */
-export interface RepoInfo {
-  /** URL-encoded project path, e.g. `group/subgroup/repo`. */
-  projectPath: string;
-  /** GitLab host base URL, e.g. `https://gitlab.com`. */
-  host: string;
-}
+export type { PRInfo, Approver, GitLabRepoInfo as RepoInfo };
 
 /**
  * Extracts the GitLab project path and host from an HTTPS or SSH remote URL.
  * @param remoteUrl - Git remote URL (HTTPS or SSH format).
  * @returns Parsed `projectPath` (e.g. `group/subgroup/repo`) and `host` base URL.
  */
-
-export function getRepoInfo(remoteUrl: string): RepoInfo {
+export function getRepoInfo(remoteUrl: string): GitLabRepoInfo {
   const host = process.env.GITLAB_HOST?.replace(/\/$/, '') ?? 'https://gitlab.com';
   const hostname = new URL(host).hostname;
 
