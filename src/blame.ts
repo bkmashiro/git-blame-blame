@@ -34,7 +34,7 @@ interface RecentAuthor {
 
 export function parseGitLogOutput(output: string): Omit<BlameResult, 'lineContent'> {
   const lines = output.split('\n');
-  const commitLine = lines.find((line) => /^[0-9a-f]{40}\s/.test(line));
+  const commitLine = lines.find((line) => /^[0-9a-f]{7,40}\s/.test(line));
 
   if (!commitLine) {
     throw new Error('Could not parse git log output');
