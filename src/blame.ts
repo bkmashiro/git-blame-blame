@@ -399,6 +399,10 @@ export function collectFileContributions(
  * @throws {Error} If the git log output cannot be parsed by `parseGitLogOutput`.
  */
 export function blameFile(filePath: string, line: number, since?: string): BlameResult {
+  if (line < 1) {
+    throw new Error(`Invalid line number: ${line}. Line must be >= 1.`);
+  }
+
   // Read the actual line content from the file
   const fileContent = readFileSync(filePath, 'utf-8');
   const lines = fileContent.split('\n');
