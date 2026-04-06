@@ -48,20 +48,47 @@ export function parseApprovalsFromReviews(
   return Array.from(approvalMap.values());
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function getRepoInfo(remoteUrl: string): RepoInfo {
+  const host = process.env.GITHUB_HOST?.replace(/\/$/, '') ?? 'https://github.com';
+  const hostname = new URL(host).hostname;
+
   // Support HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
-  // Support SSH: git@github.com:owner/repo.git
-  const httpsMatch = remoteUrl.match(/https?:\/\/(?:[^@]+@)?github\.com\/([^/]+)\/([^/.]+)/);
+  const httpsMatch = remoteUrl.match(
+    new RegExp(`https?://(?:[^@]+@)?${escapeRegex(hostname)}/([^/]+)/([^/.]+)(?:\\.git)?$`)
+  );
   if (httpsMatch) {
     return { owner: httpsMatch[1], repo: httpsMatch[2] };
   }
 
-  const sshMatch = remoteUrl.match(/git@github\.com:([^/]+)\/([^/.]+)/);
+  // Support SSH: git@github.com:owner/repo.git
+  const sshMatch = remoteUrl.match(
+    new RegExp(`git@${escapeRegex(hostname)}:([^/]+)/([^/.]+)(?:\\.git)?$`)
+  );
   if (sshMatch) {
     return { owner: sshMatch[1], repo: sshMatch[2] };
   }
 
   throw new Error(`Could not parse owner/repo from remote URL: ${remoteUrl}`);
+}
+
+export function isGitHubRemote(remoteUrl: string): boolean {
+  const host = process.env.GITHUB_HOST?.replace(/\/$/, '') ?? '';
+  const defaultHostname = 'github.com';
+
+  if (remoteUrl.includes(defaultHostname)) return true;
+  if (host) {
+    try {
+      const hostname = new URL(host).hostname;
+      return remoteUrl.includes(hostname);
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export async function getPRForCommit(

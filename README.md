@@ -23,6 +23,10 @@ npm install -g git-blame-blame
 # GitHub
 export GITHUB_TOKEN=ghp_your_token_here
 
+# GitHub Enterprise Server
+export GITHUB_HOST=https://github.mycompany.com
+export GITHUB_TOKEN=ghp_your_token_here
+
 # GitLab (gitlab.com)
 export GITLAB_TOKEN=glpat_your_token_here
 
@@ -118,6 +122,28 @@ $ git-blame-blame src/ --export json > blame-report.json
 | `--export <csv|json>` | Export tracked-path blame analysis as structured data |
 | `-V, --version` | Show version number |
 | `-h, --help` | Show help |
+
+## GitHub Enterprise
+
+`git-blame-blame` auto-detects GitHub repos from the git remote URL. For GitHub Enterprise Server instances, set `GITHUB_HOST`:
+
+```bash
+# GitHub Enterprise Server
+export GITHUB_HOST=https://github.mycompany.com
+export GITHUB_TOKEN=ghp_your_token_here
+
+git-blame-blame src/auth.js:42
+```
+
+Both HTTPS and SSH remotes are supported:
+
+```bash
+# HTTPS remote
+https://github.mycompany.com/owner/repo.git
+
+# SSH remote
+git@github.mycompany.com:owner/repo.git
+```
 
 ## GitLab
 

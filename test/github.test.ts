@@ -7,6 +7,7 @@ import {
   getApprovals,
   getPRForCommit,
   getRepoInfo,
+  isGitHubRemote,
   parseApprovalsFromReviews,
 } from '../src/github.ts';
 
@@ -162,4 +163,72 @@ test('getRepoInfo rejects unsupported remotes', () => {
     () => getRepoInfo('https://gitlab.com/acme/git-blame-blame.git'),
     /Could not parse owner\/repo from remote URL/
   );
+});
+
+test('getRepoInfo uses GITHUB_HOST for GitHub Enterprise instances', () => {
+  const original = process.env.GITHUB_HOST;
+  process.env.GITHUB_HOST = 'https://github.mycompany.com';
+  try {
+    assert.deepEqual(getRepoInfo('https://github.mycompany.com/acme/git-blame-blame.git'), {
+      owner: 'acme',
+      repo: 'git-blame-blame',
+    });
+    assert.deepEqual(getRepoInfo('https://github.mycompany.com/acme/git-blame-blame'), {
+      owner: 'acme',
+      repo: 'git-blame-blame',
+    });
+  } finally {
+    if (original === undefined) delete process.env.GITHUB_HOST;
+    else process.env.GITHUB_HOST = original;
+  }
+});
+
+test('getRepoInfo uses GITHUB_HOST for GitHub Enterprise SSH remotes', () => {
+  const original = process.env.GITHUB_HOST;
+  process.env.GITHUB_HOST = 'https://github.mycompany.com';
+  try {
+    assert.deepEqual(getRepoInfo('git@github.mycompany.com:acme/git-blame-blame.git'), {
+      owner: 'acme',
+      repo: 'git-blame-blame',
+    });
+  } finally {
+    if (original === undefined) delete process.env.GITHUB_HOST;
+    else process.env.GITHUB_HOST = original;
+  }
+});
+
+test('getRepoInfo does not match a different enterprise host when GITHUB_HOST is set', () => {
+  const original = process.env.GITHUB_HOST;
+  process.env.GITHUB_HOST = 'https://github.mycompany.com';
+  try {
+    assert.throws(
+      () => getRepoInfo('https://github.othercompany.com/acme/repo.git'),
+      /Could not parse owner\/repo from remote URL/
+    );
+  } finally {
+    if (original === undefined) delete process.env.GITHUB_HOST;
+    else process.env.GITHUB_HOST = original;
+  }
+});
+
+test('isGitHubRemote detects github.com URLs', () => {
+  assert.equal(isGitHubRemote('https://github.com/acme/repo.git'), true);
+  assert.equal(isGitHubRemote('git@github.com:acme/repo.git'), true);
+});
+
+test('isGitHubRemote returns false for non-GitHub URLs', () => {
+  assert.equal(isGitHubRemote('https://gitlab.com/acme/repo.git'), false);
+  assert.equal(isGitHubRemote('git@gitlab.com:acme/repo.git'), false);
+});
+
+test('isGitHubRemote detects self-hosted via GITHUB_HOST', () => {
+  const original = process.env.GITHUB_HOST;
+  process.env.GITHUB_HOST = 'https://github.mycompany.com';
+  try {
+    assert.equal(isGitHubRemote('https://github.mycompany.com/team/repo.git'), true);
+    assert.equal(isGitHubRemote('https://gitlab.com/team/repo.git'), false);
+  } finally {
+    if (original === undefined) delete process.env.GITHUB_HOST;
+    else process.env.GITHUB_HOST = original;
+  }
 });
