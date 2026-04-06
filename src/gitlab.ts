@@ -84,15 +84,21 @@ export async function getApprovals(projectPath: string, mrIid: number, host: str
   }
 }
 
+function hostnameMatches(remoteUrl: string, hostname: string): boolean {
+  // Match the hostname as a whole component, not as a substring of another hostname.
+  // Handles both HTTPS (://hostname/) and SSH (git@hostname:) URL forms.
+  return new RegExp(`(?:https?://[^@]*@?|git@)${escapeRegex(hostname)}(?:[:/])`).test(remoteUrl);
+}
+
 export function isGitLabRemote(remoteUrl: string): boolean {
   const host = process.env.GITLAB_HOST?.replace(/\/$/, '') ?? '';
   const defaultHostname = 'gitlab.com';
 
-  if (remoteUrl.includes(defaultHostname)) return true;
+  if (hostnameMatches(remoteUrl, defaultHostname)) return true;
   if (host) {
     try {
       const hostname = new URL(host).hostname;
-      return remoteUrl.includes(hostname);
+      return hostnameMatches(remoteUrl, hostname);
     } catch {
       return false;
     }
