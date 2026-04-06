@@ -43,6 +43,32 @@ test('parseGitLogOutput handles output with multiple hunks', () => {
   assert.equal(result.subject, 'Add multi hunk support');
 });
 
+test('parseGitLogOutput parses a 7-character abbreviated SHA', () => {
+  const output = 'abc1234 dev@example.com Dev User 2024-06-10 Fix parser edge case';
+
+  const result = parseGitLogOutput(output);
+
+  assert.equal(result.sha, 'abc1234');
+  assert.equal(result.authorEmail, 'dev@example.com');
+  assert.equal(result.authorName, 'Dev User');
+  assert.equal(result.date, '2024-06-10');
+  assert.equal(result.subject, 'Fix parser edge case');
+});
+
+test('parseGitLogOutput parses a 12-character abbreviated SHA', () => {
+  const output = 'abc123456789 dev@example.com Dev User 2024-06-10 Fix something';
+
+  const result = parseGitLogOutput(output);
+
+  assert.equal(result.sha, 'abc123456789');
+});
+
+test('parseGitLogOutput throws when SHA is too short (6 chars)', () => {
+  const output = 'abc123 dev@example.com Dev User 2024-06-10 Fix parser edge case';
+
+  assert.throws(() => parseGitLogOutput(output), /Could not parse git log output/);
+});
+
 test('parseGitLogOutput throws when no commit line is present', () => {
   assert.throws(() => parseGitLogOutput('fatal: no such path src/missing.ts'), /Could not parse git log output/);
 });
