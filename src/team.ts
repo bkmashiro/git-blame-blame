@@ -160,12 +160,13 @@ export function aggregateTeamContributions(
   contributions: FileContribution[],
   team: TeamMember[]
 ): TeamContributionRow[] {
-  const teamEmails = new Set(team.map((member) => member.email.toLowerCase()));
+  const teamByEmail = new Map(team.map((member) => [member.email.toLowerCase(), member]));
   const totals = new Map<string, { lines: number; files: Set<string> }>();
 
   for (const contribution of contributions) {
     const email = contribution.authorEmail.toLowerCase();
-    const label = teamEmails.has(email) ? contribution.authorEmail : '[external]';
+    const teamMember = teamByEmail.get(email);
+    const label = teamMember !== undefined ? teamMember.email : '[external]';
     const existing = totals.get(label) ?? { lines: 0, files: new Set<string>() };
     existing.lines += contribution.lines;
     existing.files.add(contribution.filePath);
