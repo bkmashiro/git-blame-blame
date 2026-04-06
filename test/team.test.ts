@@ -15,6 +15,24 @@ test('parseTeamCsv reads a CSV team roster', () => {
   ]);
 });
 
+test('parseTeamCsv handles a quoted name containing an embedded comma', () => {
+  assert.deepEqual(parseTeamCsv('name,email\n"Smith, Jr.",smith@example.com'), [
+    { name: 'Smith, Jr.', email: 'smith@example.com' },
+  ]);
+});
+
+test('parseTeamCsv handles escaped double-quotes inside a quoted field', () => {
+  assert.deepEqual(parseTeamCsv('name,email\n"Alice ""Ace"" Smith",ace@example.com'), [
+    { name: 'Alice "Ace" Smith', email: 'ace@example.com' },
+  ]);
+});
+
+test('parseTeamCsv trims trailing whitespace from unquoted fields', () => {
+  assert.deepEqual(parseTeamCsv('name,email\nAlice  ,  alice@example.com  '), [
+    { name: 'Alice', email: 'alice@example.com' },
+  ]);
+});
+
 test('loadTeamFile falls back based on content when the extension is unknown', () => {
   const roster = loadTeamFile('team.roster', () => '[{"name":"Bob","email":"bob@example.com"}]');
 

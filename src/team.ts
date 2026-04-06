@@ -37,6 +37,37 @@ export function parseTeamJson(content: string): TeamMember[] {
   });
 }
 
+function parseCsvRow(row: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let insideQuotes = false;
+
+  for (let index = 0; index < row.length; index++) {
+    const char = row[index];
+
+    if (insideQuotes) {
+      if (char === '"' && row[index + 1] === '"') {
+        current += '"';
+        index++;
+      } else if (char === '"') {
+        insideQuotes = false;
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      insideQuotes = true;
+    } else if (char === ',') {
+      fields.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  fields.push(current.trim());
+  return fields;
+}
+
 export function parseTeamCsv(content: string): TeamMember[] {
   const lines = content
     .split('\n')
@@ -57,7 +88,7 @@ export function parseTeamCsv(content: string): TeamMember[] {
   }
 
   return rows.map((row) => {
-    const values = row.split(',').map((value) => value.trim());
+    const values = parseCsvRow(row);
     const name = values[nameIndex];
     const email = values[emailIndex];
 
