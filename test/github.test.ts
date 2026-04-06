@@ -68,6 +68,23 @@ test('getPRForCommit wraps non-404 API failures with commit context', async () =
   );
 });
 
+test('getPRForCommit error message does not contain "undefined" when error has no message field', async () => {
+  const octokit = {
+    request: async () => {
+      throw { status: 500 };
+    },
+  };
+
+  await assert.rejects(
+    () => getPRForCommit(octokit as never, 'acme', 'git-blame-blame', 'deadbeef'),
+    (err: Error) => {
+      assert.ok(!err.message.includes('undefined'), `Error message should not contain "undefined": ${err.message}`);
+      assert.match(err.message, /Failed to get PR for commit deadbeef/);
+      return true;
+    }
+  );
+});
+
 test('getApprovals extracts only approved reviewers from the reviews response', async () => {
   const octokit = {
     pulls: {

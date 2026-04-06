@@ -110,7 +110,7 @@ export async function getPRForCommit(
     if (error.status === 404) {
       return null;
     }
-    throw new Error(`Failed to get PR for commit ${sha}: ${error.message}`);
+    throw new Error(`Failed to get PR for commit ${sha}: ${error.message ?? String(err)}`);
   }
 }
 
