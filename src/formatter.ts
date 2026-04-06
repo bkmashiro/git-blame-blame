@@ -26,6 +26,14 @@ interface ExportFileRow {
   busFactor: number;
 }
 
+/**
+ * Prints human-readable blame output for a single file line to stdout.
+ *
+ * Displays the file/line header, commit details (SHA, author, date, subject),
+ * and associated PR information including approvers.
+ *
+ * @param data - Combined blame, PR, and approver data for one file line.
+ */
 export function formatOutput(data: OutputData): void {
   const { file, line, blame, pr, approvals } = data;
 
@@ -64,6 +72,14 @@ export function formatOutput(data: OutputData): void {
   console.log();
 }
 
+/**
+ * Prints blame output as a JSON object to stdout.
+ *
+ * The JSON includes file, line, lineContent, a commit object, PR details (or null),
+ * and an array of approver logins/emails.
+ *
+ * @param data - Combined blame, PR, and approver data for one file line.
+ */
 export function formatJson(data: OutputData): void {
   const output = {
     file: data.file,
@@ -93,6 +109,15 @@ export function formatJson(data: OutputData): void {
   console.log(JSON.stringify(output, null, 2));
 }
 
+/**
+ * Prints a tabular report of the top contributor per file since a given date.
+ *
+ * For each file, the author with the most lines in the window is shown alongside
+ * the line count and whether the file was added or modified since `since`.
+ *
+ * @param contributions - Array of file contributions, typically from `collectFileContributions`.
+ * @param since - Human-readable date string used in the header line (e.g. `"1 week ago"`).
+ */
 export function formatSinceReport(contributions: FileContribution[], since: string): void {
   const topByFile = new Map<string, FileContribution>();
 
@@ -120,6 +145,14 @@ export function formatSinceReport(contributions: FileContribution[], since: stri
   }
 }
 
+/**
+ * Prints a formatted team contribution report to stdout.
+ *
+ * Renders a header row followed by one line per team member showing their name/label,
+ * total lines, file count, percentage share, and an ASCII bar chart segment.
+ *
+ * @param rows - Contribution rows from the team analysis, sorted as desired by the caller.
+ */
 export function formatTeamReport(rows: TeamContributionRow[]): void {
   console.log('Team contribution report:');
   console.log();
@@ -180,6 +213,15 @@ function formatMaintainers(file: FileBusFactor): string {
   return file.maintainers.map(formatAuthorShare).join(file.busFactor === 2 ? ' + ' : ', ');
 }
 
+/**
+ * Prints a bus factor analysis report to stdout, grouped by risk level.
+ *
+ * Displays three sections — Critical (bus factor = 1), At Risk (= 2), Healthy (≥ 3) —
+ * listing each file with its maintainers. Prints an overall repo bus factor and an
+ * optional recommendation at the end.
+ *
+ * @param report - Bus factor report produced by the bus-factor analyser.
+ */
 export function formatBusFactorReport(report: BusFactorReport): void {
   console.log('Bus Factor Analysis:');
   console.log();
@@ -220,10 +262,26 @@ export function formatBusFactorReport(report: BusFactorReport): void {
   }
 }
 
+/**
+ * Serialises file contributions as a JSON array and prints it to stdout.
+ *
+ * Each entry contains the file path, a list of authors with line counts and percentages,
+ * and the computed bus factor for that file.
+ *
+ * @param contributions - Array of file contributions, typically from `collectFileContributions`.
+ */
 export function formatExportJson(contributions: FileContribution[]): void {
   console.log(JSON.stringify(toExportRows(contributions), null, 2));
 }
 
+/**
+ * Serialises file contributions as CSV and prints it to stdout.
+ *
+ * Columns: `file`, `author` (email), `lines`, `percent`, `lastModified`.
+ * Each author row for a file is emitted on its own line.
+ *
+ * @param contributions - Array of file contributions, typically from `collectFileContributions`.
+ */
 export function formatExportCsv(contributions: FileContribution[]): void {
   const lines = ['file,author,lines,percent,lastModified'];
 
