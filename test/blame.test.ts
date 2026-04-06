@@ -7,6 +7,7 @@ import {
   parseBlamePorcelainOutput,
   parseGitLogOutput,
   parseRecentAuthorsOutput,
+  shellQuote,
 } from '../src/blame.ts';
 
 test('parseGitLogOutput extracts commit hash, author email, and subject', () => {
@@ -77,6 +78,26 @@ test('parseGitLogOutput throws when the commit line has no parseable date', () =
   const output = 'f'.repeat(40) + ' dev@example.com Dev User not-a-date Fix parser edge case';
 
   assert.throws(() => parseGitLogOutput(output), /Could not parse date from git log output/);
+});
+
+test('shellQuote wraps a simple string in single quotes', () => {
+  assert.equal(shellQuote('hello'), "'hello'");
+});
+
+test('shellQuote escapes spaces so the path is treated as one argument', () => {
+  assert.equal(shellQuote('my file.ts'), "'my file.ts'");
+});
+
+test('shellQuote escapes embedded single quotes', () => {
+  assert.equal(shellQuote("it's here.ts"), "'it'\\''s here.ts'");
+});
+
+test('shellQuote escapes shell metacharacters (dollar, backtick, semicolon)', () => {
+  assert.equal(shellQuote('path/$var;`cmd`.ts'), "'path/$var;`cmd`.ts'");
+});
+
+test('shellQuote handles paths with multiple spaces and special chars combined', () => {
+  assert.equal(shellQuote("my dir/it's a file.ts"), "'my dir/it'\\''s a file.ts'");
 });
 
 test('blameFile throws when the target file does not exist', () => {
