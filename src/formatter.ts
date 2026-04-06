@@ -278,6 +278,10 @@ export function formatExportJson(contributions: FileContribution[]): void {
   console.log(JSON.stringify(toExportRows(contributions), null, 2));
 }
 
+function csvField(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
 /**
  * Serialises file contributions as CSV and prints it to stdout.
  *
@@ -291,7 +295,7 @@ export function formatExportCsv(contributions: FileContribution[]): void {
 
   for (const row of toExportRows(contributions)) {
     for (const author of row.authors) {
-      lines.push([row.file, author.email, String(author.lines), String(author.percent), author.lastModified].join(','));
+      lines.push([csvField(row.file), csvField(author.email), csvField(String(author.lines)), csvField(String(author.percent)), csvField(author.lastModified)].join(','));
     }
   }
 
