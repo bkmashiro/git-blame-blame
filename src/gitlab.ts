@@ -1,16 +1,26 @@
+/** GitLab project coordinates parsed from a remote URL. */
 export interface RepoInfo {
+  /** URL-encoded project path, e.g. `group/subgroup/repo`. */
   projectPath: string;
+  /** GitLab host base URL, e.g. `https://gitlab.com`. */
   host: string;
 }
 
+/** Subset of merge request fields used for display and linking. */
 export interface PRInfo {
+  /** Merge request IID (internal ID within the project). */
   number: number;
+  /** Merge request title. */
   title: string;
+  /** URL to the merge request on GitLab. */
   html_url: string;
 }
 
+/** A user who approved a GitLab merge request. */
 export interface Approver {
+  /** GitLab username of the approver. */
   login: string;
+  /** Email address of the approver, if available. */
   email?: string;
 }
 
