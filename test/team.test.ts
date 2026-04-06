@@ -49,6 +49,49 @@ test('loadTeamFile falls back based on content when the extension is unknown', (
   assert.deepEqual(roster, [{ name: 'Bob', email: 'bob@example.com' }]);
 });
 
+test('aggregateTeamContributions uses canonical team email as label, not contributor casing', () => {
+  const contributions: FileContribution[] = [
+    {
+      filePath: 'src/api.ts',
+      authorEmail: 'ALICE@EXAMPLE.COM',
+      authorName: 'Alice',
+      lines: 5,
+      changeType: 'modified',
+    },
+  ];
+
+  const result = aggregateTeamContributions(contributions, [{ name: 'Alice', email: 'alice@example.com' }]);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].label, 'alice@example.com');
+});
+
+test('aggregateTeamContributions merges contributions with different email casings under canonical label', () => {
+  const contributions: FileContribution[] = [
+    {
+      filePath: 'src/api.ts',
+      authorEmail: 'Alice@Example.COM',
+      authorName: 'Alice',
+      lines: 3,
+      changeType: 'modified',
+    },
+    {
+      filePath: 'src/auth.ts',
+      authorEmail: 'ALICE@EXAMPLE.COM',
+      authorName: 'Alice',
+      lines: 2,
+      changeType: 'modified',
+    },
+  ];
+
+  const result = aggregateTeamContributions(contributions, [{ name: 'Alice', email: 'alice@example.com' }]);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].label, 'alice@example.com');
+  assert.equal(result[0].lines, 5);
+  assert.equal(result[0].files, 2);
+});
+
 test('aggregateTeamContributions groups unmatched contributors as external', () => {
   const contributions: FileContribution[] = [
     {
