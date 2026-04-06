@@ -310,6 +310,17 @@ test('parseBlamePorcelainOutput sorts by line count descending', () => {
   assert.equal(result[1].lines, 1);
 });
 
+test('parseBlamePorcelainOutput throws when author-time header is missing before a content line', () => {
+  const output = [
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+    'author Alice',
+    'author-mail <alice@example.com>',
+    '\tconst one = 1;',
+  ].join('\n');
+
+  assert.throws(() => parseBlamePorcelainOutput(output), /Could not parse author date from git blame output/);
+});
+
 test('collectFileContributions filters blame results to authors active since the requested date', () => {
   const outputs = new Map<string, string>([
     ["git ls-files -- 'src/'", 'src/api.ts\nsrc/auth.ts'],
