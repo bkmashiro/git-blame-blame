@@ -431,8 +431,62 @@ test('formatExportCsv emits one row per file author contribution', () => {
     output,
     [
       'file,author,lines,percent,lastModified',
-      'src/api.ts,alice@example.com,6,60,2024-06-10',
-      'src/api.ts,bob@example.com,4,40,2024-06-11',
+      '"src/api.ts","alice@example.com","6","60","2024-06-10"',
+      '"src/api.ts","bob@example.com","4","40","2024-06-11"',
     ].join('\n')
   );
+});
+
+test('formatExportCsv quotes file paths containing commas', () => {
+  const output = captureLogs(() =>
+    formatExportCsv([
+      {
+        filePath: 'src/weird,path/api.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 10,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+    ])
+  );
+
+  const [_header, row] = output.split('\n');
+  assert.equal(row, '"src/weird,path/api.ts","alice@example.com","10","100","2024-06-10"');
+});
+
+test('formatExportCsv escapes internal double quotes per RFC 4180', () => {
+  const output = captureLogs(() =>
+    formatExportCsv([
+      {
+        filePath: 'src/say "hello"/api.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 10,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+    ])
+  );
+
+  const [_header, row] = output.split('\n');
+  assert.equal(row, '"src/say ""hello""/api.ts","alice@example.com","10","100","2024-06-10"');
+});
+
+test('formatExportCsv quotes email addresses with leading special characters (CSV injection)', () => {
+  const output = captureLogs(() =>
+    formatExportCsv([
+      {
+        filePath: 'src/api.ts',
+        authorEmail: '=cmd|"/C calc"!A0',
+        authorName: 'Attacker',
+        lines: 1,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+    ])
+  );
+
+  const [_header, row] = output.split('\n');
+  assert.equal(row, '"src/api.ts","=cmd|""/C calc""!A0","1","100","2024-06-10"');
 });
