@@ -14,6 +14,17 @@ export interface TeamContributionRow {
   bar: string;
 }
 
+/**
+ * Parses a JSON string into an array of team members.
+ *
+ * Expects the root value to be a JSON array where every element is an object
+ * with `name` and `email` string fields.
+ *
+ * @param content - Raw JSON string to parse.
+ * @returns Array of validated team members.
+ * @throws {Error} If the root value is not an array.
+ * @throws {Error} If any element is missing or has non-string `name` or `email` fields.
+ */
 export function parseTeamJson(content: string): TeamMember[] {
   const parsed = JSON.parse(content) as unknown;
   if (!Array.isArray(parsed)) {
@@ -37,6 +48,18 @@ export function parseTeamJson(content: string): TeamMember[] {
   });
 }
 
+/**
+ * Parses a CSV string into an array of team members.
+ *
+ * The first non-empty line is treated as a header; it must contain `name` and
+ * `email` columns (case-insensitive). Subsequent lines are parsed accordingly.
+ * Returns an empty array for entirely blank input.
+ *
+ * @param content - Raw CSV string to parse.
+ * @returns Array of team members in the order they appear in the file.
+ * @throws {Error} If the header row does not contain both `name` and `email` columns.
+ * @throws {Error} If any data row is missing a value for `name` or `email`.
+ */
 export function parseTeamCsv(content: string): TeamMember[] {
   const lines = content
     .split('\n')
@@ -95,6 +118,19 @@ export function loadTeamFile(
   }
 }
 
+/**
+ * Aggregates file contributions into per-team-member (and external) totals.
+ *
+ * Author emails are matched case-insensitively against the team roster. Any
+ * author not on the team is bucketed under the `[external]` label. The result
+ * includes a progress bar scaled to the highest contributor's line count.
+ *
+ * @param contributions - Flat list of file contributions produced by
+ *   {@link collectFileContributions}.
+ * @param team - Team roster used to classify authors.
+ * @returns Rows sorted by descending line count, each with label, totals, percentage,
+ *   and an ASCII bar proportional to contribution size.
+ */
 export function aggregateTeamContributions(
   contributions: FileContribution[],
   team: TeamMember[]

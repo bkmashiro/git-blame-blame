@@ -14,6 +14,17 @@ export interface Approver {
   email?: string;
 }
 
+/**
+ * Extracts the GitLab project path and host from a remote URL.
+ *
+ * The host is read from the `GITLAB_HOST` environment variable (defaulting to
+ * `https://gitlab.com`). Both HTTPS and SSH remote formats are supported,
+ * including self-hosted instances and nested group paths.
+ *
+ * @param remoteUrl - The `git remote get-url origin` value to parse.
+ * @returns Parsed project path (e.g. `"group/subgroup/repo"`) and resolved host URL.
+ * @throws {Error} If the URL does not match the configured GitLab hostname.
+ */
 export function getRepoInfo(remoteUrl: string): RepoInfo {
   const host = process.env.GITLAB_HOST?.replace(/\/$/, '') ?? 'https://gitlab.com';
   const hostname = new URL(host).hostname;
@@ -52,6 +63,16 @@ async function gitlabFetch(url: string): Promise<unknown> {
   return res.json();
 }
 
+/**
+ * Looks up the merge request associated with a commit SHA via the GitLab API.
+ *
+ * @param projectPath - URL-encoded GitLab project path (e.g. `"group/repo"`).
+ * @param sha - Full commit SHA to look up.
+ * @param host - GitLab host URL (e.g. `"https://gitlab.com"`).
+ * @returns The first associated MR mapped to the shared `PRInfo` shape, or `null`
+ *   if none exists or the project/commit is not found (404).
+ * @throws {Error} If the GitLab API call fails for any reason other than a 404.
+ */
 export async function getPRForCommit(projectPath: string, sha: string, host: string): Promise<PRInfo | null> {
   const encodedPath = encodeURIComponent(projectPath);
   const url = `${host}/api/v4/projects/${encodedPath}/repository/commits/${sha}/merge_requests`;
@@ -68,6 +89,15 @@ export async function getPRForCommit(projectPath: string, sha: string, host: str
   }
 }
 
+/**
+ * Fetches the list of users who have approved a GitLab merge request.
+ *
+ * @param projectPath - URL-encoded GitLab project path (e.g. `"group/repo"`).
+ * @param mrIid - Internal merge request IID (project-scoped integer identifier).
+ * @param host - GitLab host URL (e.g. `"https://gitlab.com"`).
+ * @returns Array of approvers; empty if the MR has no approvals or `approved_by` is absent.
+ * @throws {Error} If the GitLab API call fails.
+ */
 export async function getApprovals(projectPath: string, mrIid: number, host: string): Promise<Approver[]> {
   const encodedPath = encodeURIComponent(projectPath);
   const url = `${host}/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/approvals`;
@@ -84,6 +114,16 @@ export async function getApprovals(projectPath: string, mrIid: number, host: str
   }
 }
 
+/**
+ * Determines whether a git remote URL points to a GitLab instance.
+ *
+ * Checks for `gitlab.com` as well as any custom hostname configured via the
+ * `GITLAB_HOST` environment variable. Returns `false` if `GITLAB_HOST` is set
+ * to an invalid URL.
+ *
+ * @param remoteUrl - The git remote URL to inspect.
+ * @returns `true` if the URL contains a recognised GitLab hostname, `false` otherwise.
+ */
 export function isGitLabRemote(remoteUrl: string): boolean {
   const host = process.env.GITLAB_HOST?.replace(/\/$/, '') ?? '';
   const defaultHostname = 'gitlab.com';

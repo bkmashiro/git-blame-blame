@@ -26,6 +26,16 @@ interface ExportFileRow {
   busFactor: number;
 }
 
+/**
+ * Prints a human-readable blame report for a single file line to stdout.
+ *
+ * Includes the file location, trimmed line content, commit metadata, and — when
+ * available — the associated PR title/URL and approver list. Uses chalk for
+ * coloured terminal output.
+ *
+ * @param data - Blame result bundle containing file path, line number, commit
+ *   metadata, optional PR info, and reviewer list.
+ */
 export function formatOutput(data: OutputData): void {
   const { file, line, blame, pr, approvals } = data;
 
@@ -64,6 +74,15 @@ export function formatOutput(data: OutputData): void {
   console.log();
 }
 
+/**
+ * Serialises a blame result bundle as indented JSON and writes it to stdout.
+ *
+ * The JSON shape includes file path, line number, trimmed line content, a
+ * `commit` object with a `shortSha` convenience field, the PR (or `null`), and
+ * an `approvals` array where missing emails are represented as `null`.
+ *
+ * @param data - Blame result bundle to serialise.
+ */
 export function formatJson(data: OutputData): void {
   const output = {
     file: data.file,
@@ -180,6 +199,15 @@ function formatMaintainers(file: FileBusFactor): string {
   return file.maintainers.map(formatAuthorShare).join(file.busFactor === 2 ? ' + ' : ', ');
 }
 
+/**
+ * Prints a colour-coded bus-factor analysis report to stdout.
+ *
+ * Renders three sections — Critical, At Risk, and Healthy — followed by the
+ * overall repo bus factor and, when present, a recommendation naming the author
+ * who is the single point of failure for the most files.
+ *
+ * @param report - Bus-factor report produced by {@link analyzeBusFactor}.
+ */
 export function formatBusFactorReport(report: BusFactorReport): void {
   console.log('Bus Factor Analysis:');
   console.log();
@@ -224,6 +252,17 @@ export function formatExportJson(contributions: FileContribution[]): void {
   console.log(JSON.stringify(toExportRows(contributions), null, 2));
 }
 
+/**
+ * Serialises file contributions as CSV and writes the result to stdout.
+ *
+ * The CSV has a header row (`file,author,lines,percent,lastModified`) followed
+ * by one row per author per file, using author email in the `author` column.
+ * Files are sorted alphabetically; authors within each file are sorted by
+ * descending line count.
+ *
+ * @param contributions - Flat list of file contributions produced by
+ *   {@link collectFileContributions}.
+ */
 export function formatExportCsv(contributions: FileContribution[]): void {
   const lines = ['file,author,lines,percent,lastModified'];
 

@@ -32,6 +32,14 @@ interface RecentAuthor {
   name: string;
 }
 
+/**
+ * Parses the output of `git log` for a single commit into a structured blame result.
+ *
+ * @param output - Raw stdout from a `git log --format` command containing one commit line.
+ * @returns Parsed commit metadata excluding line content.
+ * @throws {Error} If the output does not contain a recognisable 40-character SHA line.
+ * @throws {Error} If a `YYYY-MM-DD` date cannot be located within the commit line.
+ */
 export function parseGitLogOutput(output: string): Omit<BlameResult, 'lineContent'> {
   const lines = output.split('\n');
   const commitLine = lines.find((line) => /^[0-9a-f]{40}\s/.test(line));
@@ -83,6 +91,17 @@ export function parseRecentAuthorsOutput(output: string): RecentAuthor[] {
     });
 }
 
+/**
+ * Parses the porcelain output of `git blame --line-porcelain` into per-author line counts.
+ *
+ * Iterates every porcelain block, accumulates line counts keyed by author email, and
+ * tracks the most-recent modification date for each author.
+ *
+ * @param output - Raw stdout from `git blame --line-porcelain`.
+ * @returns Array of author contributions sorted descending by line count.
+ * @throws {Error} If a content line (starting with `\t`) is encountered before an
+ *   `author-mail` header has been seen.
+ */
 export function parseBlamePorcelainOutput(output: string): AuthorContribution[] {
   const contributions = new Map<string, AuthorContribution>();
   let currentAuthorName = '';
@@ -182,6 +201,21 @@ function getChangeType(filePath: string, since: string, exec: (command: string) 
   return output ? 'added' : 'modified';
 }
 
+/**
+ * Collects per-file, per-author line contributions for every git-tracked file under
+ * `targetPath`, optionally filtered to changes made since a given date.
+ *
+ * When `options.since` is provided only files touched since that date are included, and
+ * blame entries are filtered to authors who appear in the recent commit history for each
+ * file.
+ *
+ * @param targetPath - File or directory path to analyse; passed directly to `git ls-files`.
+ * @param options - Optional configuration.
+ * @param options.since - ISO date string (e.g. `"2024-01-01"`); limits scope to recent changes.
+ * @param options.exec - Override the shell executor (defaults to `execSync`); useful in tests.
+ * @returns Flat array of file contributions sorted by file path then descending line count.
+ * @throws {Error} If `targetPath` contains no git-tracked files.
+ */
 export function collectFileContributions(
   targetPath: string,
   options: ContributionReportOptions = {}
@@ -239,6 +273,19 @@ export function collectFileContributions(
   });
 }
 
+/**
+ * Returns the blame information for a single line in a file.
+ *
+ * Reads the file from disk to capture the current line content, then runs
+ * `git log -L` to find the most-recent commit that touched that line.
+ *
+ * @param filePath - Absolute or repo-relative path to the file.
+ * @param line - 1-based line number to blame.
+ * @param since - Optional ISO date string; restricts history to commits after this date.
+ * @returns Full blame result including commit metadata and the raw line content.
+ * @throws {Error} If the `git log` command fails to execute.
+ * @throws {Error} If no git history is found for the given file and line.
+ */
 export function blameFile(filePath: string, line: number, since?: string): BlameResult {
   // Read the actual line content from the file
   const fileContent = readFileSync(filePath, 'utf-8');

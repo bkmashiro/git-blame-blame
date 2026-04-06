@@ -39,6 +39,19 @@ export function groupContributionsByFile(contributions: FileContribution[]): Map
   return grouped;
 }
 
+/**
+ * Calculates the bus-factor score and author breakdown for a single file.
+ *
+ * The bus factor is defined as the number of authors whose individual line
+ * ownership exceeds `thresholdPercent`. An author owning more than the threshold
+ * is considered a "maintainer" — losing them would meaningfully hurt the file.
+ *
+ * @param filePath - Path of the file being analysed (stored verbatim in the result).
+ * @param contributions - All per-author contribution records for this file.
+ * @param thresholdPercent - Minimum ownership percentage to be counted as a maintainer
+ *   (default: {@link BUS_FACTOR_THRESHOLD_PERCENT}).
+ * @returns File bus-factor record including total lines, authors, maintainers, and score.
+ */
 export function calculateFileBusFactor(
   filePath: string,
   contributions: FileContribution[],
@@ -66,6 +79,23 @@ export function calculateFileBusFactor(
   };
 }
 
+/**
+ * Produces a full bus-factor report across all files in a contribution set.
+ *
+ * Files are classified into three risk tiers:
+ * - **Critical** — bus factor = 1 (single point of failure)
+ * - **At risk** — bus factor = 2
+ * - **Healthy** — bus factor ≥ 3
+ *
+ * Also computes an overall repository bus factor (the minimum across all files)
+ * and generates a human-readable recommendation highlighting the author who is
+ * the single owner of the most critical files.
+ *
+ * @param contributions - Flat list of file contributions produced by {@link collectFileContributions}.
+ * @param thresholdPercent - Ownership threshold for maintainer classification
+ *   (default: {@link BUS_FACTOR_THRESHOLD_PERCENT}).
+ * @returns Aggregated bus-factor report with per-file detail and summary statistics.
+ */
 export function analyzeBusFactor(
   contributions: FileContribution[],
   thresholdPercent = BUS_FACTOR_THRESHOLD_PERCENT

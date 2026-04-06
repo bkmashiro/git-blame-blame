@@ -48,6 +48,17 @@ export function parseApprovalsFromReviews(
   return Array.from(approvalMap.values());
 }
 
+/**
+ * Extracts the GitHub owner and repository name from a remote URL.
+ *
+ * Supports HTTPS (`https://github.com/owner/repo[.git]`) and SSH
+ * (`git@github.com:owner/repo[.git]`) formats, including URLs that embed
+ * credentials (`https://token@github.com/...`).
+ *
+ * @param remoteUrl - The `git remote get-url origin` value to parse.
+ * @returns Parsed owner and repo name.
+ * @throws {Error} If the URL does not match any recognised GitHub remote format.
+ */
 export function getRepoInfo(remoteUrl: string): RepoInfo {
   // Support HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
   // Support SSH: git@github.com:owner/repo.git
@@ -64,6 +75,18 @@ export function getRepoInfo(remoteUrl: string): RepoInfo {
   throw new Error(`Could not parse owner/repo from remote URL: ${remoteUrl}`);
 }
 
+/**
+ * Looks up the pull request associated with a commit SHA via the GitHub API.
+ *
+ * Uses the `groot-preview` media type to access the commit–PR association endpoint.
+ *
+ * @param octokit - Authenticated Octokit instance.
+ * @param owner - Repository owner (user or organisation login).
+ * @param repo - Repository name.
+ * @param sha - Full 40-character commit SHA to look up.
+ * @returns The first associated PR, or `null` if none exists or the resource is not found.
+ * @throws {Error} If the API call fails for any reason other than a 404.
+ */
 export async function getPRForCommit(
   octokit: Octokit,
   owner: string,
@@ -91,6 +114,19 @@ export async function getPRForCommit(
   }
 }
 
+/**
+ * Fetches all approving reviewers for a GitHub pull request.
+ *
+ * Deduplicates by reviewer login so that a reviewer who submitted multiple
+ * APPROVED reviews appears only once.
+ *
+ * @param octokit - Authenticated Octokit instance.
+ * @param owner - Repository owner (user or organisation login).
+ * @param repo - Repository name.
+ * @param pullNumber - Pull request number.
+ * @returns Array of unique approvers; empty if the PR has no approvals.
+ * @throws {Error} If the GitHub API call fails.
+ */
 export async function getApprovals(
   octokit: Octokit,
   owner: string,
