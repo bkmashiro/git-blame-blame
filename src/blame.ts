@@ -206,6 +206,10 @@ export function parseBlamePorcelainOutput(output: string): AuthorContribution[] 
       throw new Error('Could not parse author email from git blame output');
     }
 
+    if (!currentAuthorDate) {
+      throw new Error('Could not parse author date from git blame output');
+    }
+
     const existing = contributions.get(currentAuthorEmail);
     if (existing) {
       existing.lines += 1;
