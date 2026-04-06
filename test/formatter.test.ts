@@ -122,6 +122,7 @@ test('formatSinceReport shows one row per file using the top matching contributo
           authorEmail: 'alice@example.com',
           authorName: 'Alice',
           lines: 5,
+          lastModified: '2024-01-01',
           changeType: 'added',
         },
         {
@@ -129,6 +130,7 @@ test('formatSinceReport shows one row per file using the top matching contributo
           authorEmail: 'bob@example.com',
           authorName: 'Bob',
           lines: 2,
+          lastModified: '2024-01-01',
           changeType: 'added',
         },
       ],
@@ -313,8 +315,65 @@ test('formatExportCsv emits one row per file author contribution', () => {
     output,
     [
       'file,author,lines,percent,lastModified',
-      'src/api.ts,alice@example.com,6,60,2024-06-10',
-      'src/api.ts,bob@example.com,4,40,2024-06-11',
+      '"src/api.ts","alice@example.com",6,60,"2024-06-10"',
+      '"src/api.ts","bob@example.com",4,40,"2024-06-11"',
     ].join('\n')
   );
+});
+
+test('formatExportCsv wraps fields in double-quotes (RFC 4180)', () => {
+  const output = captureLogs(() =>
+    formatExportCsv([
+      {
+        filePath: 'src/api.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 6,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+    ])
+  );
+
+  const [, dataRow] = output.split('\n');
+  assert.match(dataRow, /^"src\/api\.ts"/);
+  assert.match(dataRow, /"alice@example\.com"/);
+});
+
+test('formatExportCsv escapes double-quotes in field values', () => {
+  const output = captureLogs(() =>
+    formatExportCsv([
+      {
+        filePath: 'src/"quoted"/file.ts',
+        authorEmail: 'alice@example.com',
+        authorName: 'Alice',
+        lines: 1,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+    ])
+  );
+
+  const [, dataRow] = output.split('\n');
+  assert.ok(dataRow.startsWith('"src/""quoted""/file.ts"'), `unexpected field: ${dataRow}`);
+});
+
+test('formatExportCsv handles file paths and emails containing commas', () => {
+  const output = captureLogs(() =>
+    formatExportCsv([
+      {
+        filePath: 'src/a,b.ts',
+        authorEmail: 'alice+tag,extra@example.com',
+        authorName: 'Alice',
+        lines: 1,
+        lastModified: '2024-06-10',
+        changeType: 'modified',
+      },
+    ])
+  );
+
+  const rows = output.split('\n');
+  assert.equal(rows.length, 2);
+  assert.match(rows[1], /^"src\/a,b\.ts"/);
+  assert.match(rows[1], /"alice\+tag,extra@example\.com"/);
 });

@@ -224,12 +224,18 @@ export function formatExportJson(contributions: FileContribution[]): void {
   console.log(JSON.stringify(toExportRows(contributions), null, 2));
 }
 
+function csvField(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 export function formatExportCsv(contributions: FileContribution[]): void {
   const lines = ['file,author,lines,percent,lastModified'];
 
   for (const row of toExportRows(contributions)) {
     for (const author of row.authors) {
-      lines.push([row.file, author.email, String(author.lines), String(author.percent), author.lastModified].join(','));
+      lines.push(
+        [csvField(row.file), csvField(author.email), String(author.lines), String(author.percent), csvField(author.lastModified)].join(',')
+      );
     }
   }
 
