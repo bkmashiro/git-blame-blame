@@ -100,6 +100,12 @@ export function parseTeamCsv(content: string): TeamMember[] {
   });
 }
 
+/**
+ * Loads a team member list from a JSON or CSV file, auto-detecting the format by extension or content.
+ * @param filePath - Path to the team file (`.json` or `.csv`; plain JSON array is also accepted).
+ * @param readFile - File reader function; defaults to `fs.readFileSync` (injectable for testing).
+ * @returns Array of parsed team members with `name` and `email` fields.
+ */
 export function loadTeamFile(
   filePath: string,
   readFile: (path: string, encoding: BufferEncoding) => string = readFileSync
@@ -126,6 +132,12 @@ export function loadTeamFile(
   }
 }
 
+/**
+ * Aggregates file contributions into per-team-member (plus `[external]`) totals with a progress bar.
+ * @param contributions - Flat list of per-file, per-author contribution records.
+ * @param team - List of known team members used to distinguish internal from external contributors.
+ * @returns Rows sorted by line count descending, each with label, line count, file count, percentage, and bar.
+ */
 export function aggregateTeamContributions(
   contributions: FileContribution[],
   team: TeamMember[]

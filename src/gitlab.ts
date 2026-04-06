@@ -14,6 +14,11 @@ export interface Approver {
   email?: string;
 }
 
+/**
+ * Extracts the GitLab project path and host from an HTTPS or SSH remote URL.
+ * @param remoteUrl - Git remote URL (HTTPS or SSH format).
+ * @returns Parsed `projectPath` (e.g. `group/subgroup/repo`) and `host` base URL.
+ */
 export function getRepoInfo(remoteUrl: string): RepoInfo {
   const host = process.env.GITLAB_HOST?.replace(/\/$/, '') ?? 'https://gitlab.com';
   const hostname = new URL(host).hostname;
@@ -52,6 +57,13 @@ async function gitlabFetch(url: string): Promise<unknown> {
   return res.json();
 }
 
+/**
+ * Looks up the first merge request associated with a commit SHA via the GitLab API.
+ * @param projectPath - URL-encoded GitLab project path (e.g. `group/repo`).
+ * @param sha - Full commit SHA to look up.
+ * @param host - GitLab host base URL (e.g. `https://gitlab.com`).
+ * @returns The matching MR info as a `PRInfo`, or `null` if none exists or the project is not found.
+ */
 export async function getPRForCommit(projectPath: string, sha: string, host: string): Promise<PRInfo | null> {
   const encodedPath = encodeURIComponent(projectPath);
   const url = `${host}/api/v4/projects/${encodedPath}/repository/commits/${sha}/merge_requests`;
@@ -68,6 +80,13 @@ export async function getPRForCommit(projectPath: string, sha: string, host: str
   }
 }
 
+/**
+ * Fetches the list of approving users for a GitLab merge request.
+ * @param projectPath - URL-encoded GitLab project path (e.g. `group/repo`).
+ * @param mrIid - Internal merge request ID (iid) within the project.
+ * @param host - GitLab host base URL (e.g. `https://gitlab.com`).
+ * @returns Array of approvers with `login` (username) and optional `email`.
+ */
 export async function getApprovals(projectPath: string, mrIid: number, host: string): Promise<Approver[]> {
   const encodedPath = encodeURIComponent(projectPath);
   const url = `${host}/api/v4/projects/${encodedPath}/merge_requests/${mrIid}/approvals`;

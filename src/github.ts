@@ -48,6 +48,11 @@ export function parseApprovalsFromReviews(
   return Array.from(approvalMap.values());
 }
 
+/**
+ * Extracts GitHub owner and repository name from an HTTPS or SSH remote URL.
+ * @param remoteUrl - Git remote URL (HTTPS or SSH format).
+ * @returns Parsed `owner` and `repo` strings.
+ */
 export function getRepoInfo(remoteUrl: string): RepoInfo {
   // Support HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
   // Support SSH: git@github.com:owner/repo.git
@@ -64,6 +69,14 @@ export function getRepoInfo(remoteUrl: string): RepoInfo {
   throw new Error(`Could not parse owner/repo from remote URL: ${remoteUrl}`);
 }
 
+/**
+ * Looks up the first pull request associated with a commit SHA via the GitHub API.
+ * @param octokit - Authenticated Octokit client.
+ * @param owner - Repository owner (user or organisation).
+ * @param repo - Repository name.
+ * @param sha - Full commit SHA to look up.
+ * @returns The matching PR info, or `null` if none exists or the repo is not found.
+ */
 export async function getPRForCommit(
   octokit: Octokit,
   owner: string,
@@ -91,6 +104,14 @@ export async function getPRForCommit(
   }
 }
 
+/**
+ * Fetches the list of approving reviewers for a GitHub pull request.
+ * @param octokit - Authenticated Octokit client.
+ * @param owner - Repository owner (user or organisation).
+ * @param repo - Repository name.
+ * @param pullNumber - Pull request number.
+ * @returns Array of approvers (deduplicated by login).
+ */
 export async function getApprovals(
   octokit: Octokit,
   owner: string,
