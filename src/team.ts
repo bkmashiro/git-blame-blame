@@ -37,6 +37,37 @@ export function parseTeamJson(content: string): TeamMember[] {
   });
 }
 
+function parseCsvRow(row: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < row.length; i++) {
+    const char = row[i];
+
+    if (inQuotes) {
+      if (char === '"' && row[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      fields.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  fields.push(current.trim());
+  return fields;
+}
+
 export function parseTeamCsv(content: string): TeamMember[] {
   const lines = content
     .split('\n')
@@ -48,7 +79,7 @@ export function parseTeamCsv(content: string): TeamMember[] {
   }
 
   const [header, ...rows] = lines;
-  const columns = header.split(',').map((column) => column.trim().toLowerCase());
+  const columns = parseCsvRow(header).map((column) => column.toLowerCase());
   const nameIndex = columns.indexOf('name');
   const emailIndex = columns.indexOf('email');
 
@@ -57,7 +88,7 @@ export function parseTeamCsv(content: string): TeamMember[] {
   }
 
   return rows.map((row) => {
-    const values = row.split(',').map((value) => value.trim());
+    const values = parseCsvRow(row);
     const name = values[nameIndex];
     const email = values[emailIndex];
 
