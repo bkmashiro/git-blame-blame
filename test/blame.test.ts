@@ -104,6 +104,78 @@ test('parseBlamePorcelainOutput counts blamed lines per author', () => {
   ]);
 });
 
+test('collectFileContributions quotes file paths with spaces in all git commands', () => {
+  const spacedFile = 'src/my component.ts';
+  const commands: string[] = [];
+  const outputs = new Map<string, string>([
+    ["git ls-files -- 'src/'", spacedFile],
+    [
+      `git blame --line-porcelain --since='2024-01-01' -- 'src/my component.ts'`,
+      [
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+        'author Alice',
+        'author-mail <alice@example.com>',
+        'author-time 1717977600',
+        '\tconst x = 1;',
+      ].join('\n'),
+    ],
+    [`git log --since='2024-01-01' --diff-filter=AM --format='%ae\t%an' -- 'src/my component.ts'`, 'alice@example.com\tAlice'],
+    [`git log --since='2024-01-01' --diff-filter=A --format=%H -1 -- 'src/my component.ts'`, ''],
+  ]);
+
+  collectFileContributions('src/', {
+    since: '2024-01-01',
+    exec: (command) => {
+      commands.push(command);
+      const output = outputs.get(command);
+      if (output === undefined) {
+        throw new Error(`Unexpected command: ${command}`);
+      }
+      return output;
+    },
+  });
+
+  // Every command referencing the spaced filename must quote it
+  const fileCommands = commands.filter((cmd) => cmd.includes('my component'));
+  assert.ok(fileCommands.length > 0, 'expected at least one command referencing the file');
+  for (const cmd of fileCommands) {
+    assert.ok(cmd.includes("'src/my component.ts'"), `file path not quoted in: ${cmd}`);
+  }
+});
+
+test("collectFileContributions quotes file paths containing single quotes", () => {
+  const trickyFile = "src/it's complicated.ts";
+  const outputs = new Map<string, string>([
+    ["git ls-files -- 'src/'", trickyFile],
+    [
+      `git blame --line-porcelain --since='2024-01-01' -- 'src/it'\\''s complicated.ts'`,
+      [
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 1 1 1',
+        'author Alice',
+        'author-mail <alice@example.com>',
+        'author-time 1717977600',
+        '\tconst x = 1;',
+      ].join('\n'),
+    ],
+    [`git log --since='2024-01-01' --diff-filter=AM --format='%ae\t%an' -- 'src/it'\\''s complicated.ts'`, 'alice@example.com\tAlice'],
+    [`git log --since='2024-01-01' --diff-filter=A --format=%H -1 -- 'src/it'\\''s complicated.ts'`, ''],
+  ]);
+
+  // Should not throw — all commands must be constructed with proper quoting
+  assert.doesNotThrow(() =>
+    collectFileContributions('src/', {
+      since: '2024-01-01',
+      exec: (command) => {
+        const output = outputs.get(command);
+        if (output === undefined) {
+          throw new Error(`Unexpected command: ${command}`);
+        }
+        return output;
+      },
+    })
+  );
+});
+
 test('collectFileContributions filters blame results to authors active since the requested date', () => {
   const outputs = new Map<string, string>([
     ["git ls-files -- 'src/'", 'src/api.ts\nsrc/auth.ts'],
