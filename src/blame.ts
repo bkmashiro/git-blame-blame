@@ -32,6 +32,14 @@ interface RecentAuthor {
   name: string;
 }
 
+/**
+ * Parses the output of `git log` with a custom format into a BlameResult (minus lineContent).
+ *
+ * @param output - Raw stdout from `git log --format="%H %ae %an %ad %s"`.
+ * @returns Parsed commit metadata: sha, authorEmail, authorName, date, and subject.
+ * @throws {Error} If the output contains no line matching the expected 40-char SHA format.
+ * @throws {Error} If the date field cannot be located in the commit line.
+ */
 export function parseGitLogOutput(output: string): Omit<BlameResult, 'lineContent'> {
   const lines = output.split('\n');
   const commitLine = lines.find((line) => /^[0-9a-f]{7,40}\s/.test(line));
@@ -58,6 +66,13 @@ export function parseGitLogOutput(output: string): Omit<BlameResult, 'lineConten
   };
 }
 
+/**
+ * Extracts the line number from a single line of `git blame` porcelain output.
+ *
+ * @param output - A single annotated blame line, e.g. `"abc123 (Author 2024-01-01  42) code"`.
+ * @returns The 1-based line number parsed from the blame annotation.
+ * @throws {Error} If the expected line-number pattern is not found in the output.
+ */
 export function extractLineNumberFromBlameOutput(output: string): number {
   const match = output.match(/\s(\d+)\)\s/);
 
@@ -68,6 +83,13 @@ export function extractLineNumberFromBlameOutput(output: string): number {
   return Number.parseInt(match[1], 10);
 }
 
+/**
+ * Parses the tab-delimited output of `git log --format="%ae\t%an"` into author objects.
+ *
+ * @param output - Raw stdout where each line is `"<email>\t<name>"`.
+ * @returns Array of `{ email, name }` objects; empty lines are skipped.
+ * @throws {Error} If any non-empty line is missing the expected `email\tname` format.
+ */
 export function parseRecentAuthorsOutput(output: string): RecentAuthor[] {
   return output
     .split('\n')
@@ -83,6 +105,14 @@ export function parseRecentAuthorsOutput(output: string): RecentAuthor[] {
     });
 }
 
+/**
+ * Parses the output of `git blame --line-porcelain` into per-author line counts.
+ *
+ * @param output - Raw stdout from `git blame --line-porcelain`.
+ * @returns Array of `AuthorContribution` objects sorted descending by line count.
+ * @throws {Error} If a content line (starting with `\t`) is encountered before any
+ *   `author-mail` header has been seen.
+ */
 export function parseBlamePorcelainOutput(output: string): AuthorContribution[] {
   const contributions = new Map<string, AuthorContribution>();
   let currentAuthorName = '';
@@ -182,6 +212,19 @@ function getChangeType(filePath: string, since: string, exec: (command: string) 
   return output ? 'added' : 'modified';
 }
 
+/**
+ * Collects per-author line contributions for all git-tracked files under `targetPath`.
+ *
+ * Runs `git ls-files` to enumerate files, then `git blame --line-porcelain` on each.
+ * When `options.since` is provided, results are filtered to authors who touched the
+ * file within that window, and each entry is tagged as `'added'` or `'modified'`.
+ *
+ * @param targetPath - File or directory path to analyse (passed to `git ls-files`).
+ * @param options - Optional settings: `since` (date string for `--since`) and `exec`
+ *   (custom command executor, defaults to `execSync`).
+ * @returns Array of `FileContribution` records sorted by file path then descending line count.
+ * @throws {Error} If no tracked files are found under `targetPath`.
+ */
 export function collectFileContributions(
   targetPath: string,
   options: ContributionReportOptions = {}
@@ -239,6 +282,22 @@ export function collectFileContributions(
   });
 }
 
+/**
+ * Returns blame information for a single line in a file, including the line's content.
+ *
+ * Reads the file from disk to capture the current line content, then runs
+ * `git log -L <line>,<line>:<file>` to find the most recent commit that touched it.
+ *
+ * @param filePath - Absolute or repo-relative path to the source file.
+ * @param line - 1-based line number to blame.
+ * @param since - Optional ISO date string passed as `--since` to limit the log range.
+ * @returns `BlameResult` containing commit SHA, author, date, subject, and the line content.
+ * @throws {Error} If `git log` exits with a non-zero status (e.g. git is not installed,
+ *   or the file is not in a git repository).
+ * @throws {Error} If no git history is found for the given file/line (e.g. untracked file
+ *   or line outside the `--since` window).
+ * @throws {Error} If the git log output cannot be parsed by `parseGitLogOutput`.
+ */
 export function blameFile(filePath: string, line: number, since?: string): BlameResult {
   // Read the actual line content from the file
   const fileContent = readFileSync(filePath, 'utf-8');
