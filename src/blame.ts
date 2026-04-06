@@ -222,7 +222,7 @@ function runGit(command: string): string {
  * @param value - The raw string to quote (e.g. a file path or git ref).
  * @returns A shell-safe single-quoted string.
  */
-function shellQuote(value: string): string {
+export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
