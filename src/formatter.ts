@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import type { BlameResult, FileContribution } from './blame.js';
 import { BUS_FACTOR_THRESHOLD_PERCENT, type BusFactorReport, type FileBusFactor } from './bus-factor.js';
-import type { PRInfo, Approver } from './github.js';
+import type { PRInfo, Approver } from './types.js';
 import type { TeamContributionRow } from './team.js';
 
 /** All data needed to render a single-line blame result. */

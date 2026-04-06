@@ -1,3 +1,7 @@
+import type { PRInfo, Approver } from './types.js';
+
+export type { PRInfo, Approver };
+
 /** GitLab project coordinates parsed from a remote URL. */
 export interface RepoInfo {
   /** URL-encoded project path, e.g. `group/subgroup/repo`. */
@@ -6,29 +10,12 @@ export interface RepoInfo {
   host: string;
 }
 
-/** Subset of merge request fields used for display and linking. */
-export interface PRInfo {
-  /** Merge request IID (internal ID within the project). */
-  number: number;
-  /** Merge request title. */
-  title: string;
-  /** URL to the merge request on GitLab. */
-  html_url: string;
-}
-
-/** A user who approved a GitLab merge request. */
-export interface Approver {
-  /** GitLab username of the approver. */
-  login: string;
-  /** Email address of the approver, if available. */
-  email?: string;
-}
-
 /**
  * Extracts the GitLab project path and host from an HTTPS or SSH remote URL.
  * @param remoteUrl - Git remote URL (HTTPS or SSH format).
  * @returns Parsed `projectPath` (e.g. `group/subgroup/repo`) and `host` base URL.
  */
+
 export function getRepoInfo(remoteUrl: string): RepoInfo {
   const host = process.env.GITLAB_HOST?.replace(/\/$/, '') ?? 'https://gitlab.com';
   const hostname = new URL(host).hostname;

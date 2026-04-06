@@ -1,4 +1,7 @@
 import { Octokit } from '@octokit/rest';
+import type { PRInfo, Approver } from './types.js';
+
+export type { PRInfo, Approver };
 
 /** GitHub repository coordinates parsed from a remote URL. */
 export interface RepoInfo {
@@ -6,24 +9,6 @@ export interface RepoInfo {
   owner: string;
   /** Repository name. */
   repo: string;
-}
-
-/** Subset of pull request fields used for display and linking. */
-export interface PRInfo {
-  /** Pull request number. */
-  number: number;
-  /** Pull request title. */
-  title: string;
-  /** URL to the pull request on GitHub. */
-  html_url: string;
-}
-
-/** A reviewer who approved a pull request. */
-export interface Approver {
-  /** GitHub login (username) of the approver. */
-  login: string;
-  /** Email address of the approver, if available. */
-  email?: string;
 }
 
 /**
