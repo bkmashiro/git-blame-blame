@@ -306,9 +306,10 @@ export function blameFile(filePath: string, line: number, since?: string): Blame
 
   // Run git log to get commit info for the specific line
   const format = '%H %ae %an %ad %s';
+  const lineRange = shellQuote(`${line},${line}:${filePath}`);
   const gitCmd = since
-    ? `git log --since=${shellQuote(since)} -L ${line},${line}:${filePath} --follow -1 --format="${format}" --date=short`
-    : `git log -L ${line},${line}:${filePath} --follow -1 --format="${format}" --date=short`;
+    ? `git log --since=${shellQuote(since)} -L ${lineRange} --follow -1 --format="${format}" --date=short`
+    : `git log -L ${lineRange} --follow -1 --format="${format}" --date=short`;
 
   let output: string;
   try {
