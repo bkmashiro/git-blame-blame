@@ -105,6 +105,17 @@ test('isGitLabRemote does not match mygitlab.company.com as gitlab.com', () => {
   }
 });
 
+test('isGitLabRemote returns false when GITLAB_HOST is set to an invalid URL', () => {
+  const original = process.env.GITLAB_HOST;
+  process.env.GITLAB_HOST = 'not-a-valid-url';
+  try {
+    assert.equal(isGitLabRemote('https://not-a-valid-url/acme/repo.git'), false);
+  } finally {
+    if (original === undefined) delete process.env.GITLAB_HOST;
+    else process.env.GITLAB_HOST = original;
+  }
+});
+
 // ---------------------------------------------------------------------------
 // getPRForCommit
 // ---------------------------------------------------------------------------
@@ -155,6 +166,43 @@ test('getPRForCommit wraps non-404 API failures with commit context', async () =
     );
   } finally {
     restore();
+  }
+});
+
+test('getPRForCommit throws when the response body is not valid JSON', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    json: () => Promise.reject(new Error('Unexpected token < in JSON')),
+  } as Response);
+  try {
+    await assert.rejects(
+      () => getPRForCommit('acme/repo', 'abc123', 'https://gitlab.com'),
+      /Failed to get MR for commit abc123/
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test('getPRForCommit error message does not contain "undefined" when error has no message field', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw { status: 500 };
+  };
+  try {
+    await assert.rejects(
+      () => getPRForCommit('acme/project', 'deadbeef', 'https://gitlab.com'),
+      (err: Error) => {
+        assert.ok(!err.message.includes('undefined'), `Error message should not contain "undefined": ${err.message}`);
+        assert.match(err.message, /Failed to get MR for commit deadbeef/);
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 
@@ -212,34 +260,32 @@ test('getApprovals wraps API failures with MR context', async () => {
   }
 });
 
-test('getPRForCommit wraps non-404 API failures with commit context', async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: false, status: 500, statusText: 'Internal Server Error' }) as never;
+// ── getRepoInfo self-hosted edge cases ────────────────────────────────────────
+
+test('getRepoInfo strips trailing slash from GITLAB_HOST before matching', () => {
+  const original = process.env.GITLAB_HOST;
+  process.env.GITLAB_HOST = 'https://git.mycompany.com/';
   try {
-    await assert.rejects(
-      () => getPRForCommit('acme/project', 'deadbeef', 'https://gitlab.com'),
-      /Failed to get MR for commit deadbeef/
+    assert.deepEqual(
+      getRepoInfo('https://git.mycompany.com/team/project.git'),
+      { projectPath: 'team/project', host: 'https://git.mycompany.com' }
     );
   } finally {
-    globalThis.fetch = originalFetch;
+    if (original === undefined) delete process.env.GITLAB_HOST;
+    else process.env.GITLAB_HOST = original;
   }
 });
 
-test('getPRForCommit error message does not contain "undefined" when error has no message field', async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => {
-    throw { status: 500 };
-  };
+test('getRepoInfo parses self-hosted SSH remote when GITLAB_HOST is set', () => {
+  const original = process.env.GITLAB_HOST;
+  process.env.GITLAB_HOST = 'https://git.mycompany.com';
   try {
-    await assert.rejects(
-      () => getPRForCommit('acme/project', 'deadbeef', 'https://gitlab.com'),
-      (err: Error) => {
-        assert.ok(!err.message.includes('undefined'), `Error message should not contain "undefined": ${err.message}`);
-        assert.match(err.message, /Failed to get MR for commit deadbeef/);
-        return true;
-      }
+    assert.deepEqual(
+      getRepoInfo('git@git.mycompany.com:team/project.git'),
+      { projectPath: 'team/project', host: 'https://git.mycompany.com' }
     );
   } finally {
-    globalThis.fetch = originalFetch;
+    if (original === undefined) delete process.env.GITLAB_HOST;
+    else process.env.GITLAB_HOST = original;
   }
 });
