@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { PRInfo, Approver } from '../src/types.ts';
+import type { PRInfo, Approver, GitHubRepoInfo, GitLabRepoInfo } from '../src/types.ts';
 // Verify the re-exports from github and gitlab resolve to the same types
 import type { PRInfo as GitHubPRInfo, Approver as GitHubApprover } from '../src/github.ts';
 import type { PRInfo as GitLabPRInfo, Approver as GitLabApprover } from '../src/gitlab.ts';
@@ -53,4 +53,32 @@ test('Approver login is a non-empty string in typical usage', () => {
   const approver: Approver = { login: 'some-user' };
   assert.equal(typeof approver.login, 'string');
   assert.ok(approver.login.length > 0);
+});
+
+test('GitHubRepoInfo requires owner and repo', () => {
+  const info: GitHubRepoInfo = { owner: 'acme', repo: 'my-repo' };
+  assert.equal(info.owner, 'acme');
+  assert.equal(info.repo, 'my-repo');
+});
+
+test('GitLabRepoInfo requires projectPath and host', () => {
+  const info: GitLabRepoInfo = { projectPath: 'org/group/repo', host: 'https://gitlab.com' };
+  assert.equal(info.projectPath, 'org/group/repo');
+  assert.equal(info.host, 'https://gitlab.com');
+});
+
+test('GitLabRepoInfo projectPath supports nested groups', () => {
+  const info: GitLabRepoInfo = { projectPath: 'a/b/c/d', host: 'https://gitlab.example.com' };
+  assert.equal(info.projectPath, 'a/b/c/d');
+});
+
+test('GitHubRepoInfo and GitLabRepoInfo are structurally incompatible', () => {
+  // Verify the two RepoInfo shapes are distinct — a GitHub info object
+  // is missing 'projectPath' and a GitLab info object is missing 'owner'/'repo'.
+  const github: GitHubRepoInfo = { owner: 'acme', repo: 'proj' };
+  const gitlab: GitLabRepoInfo = { projectPath: 'acme/proj', host: 'https://gitlab.com' };
+
+  assert.ok(!('projectPath' in github), 'GitHubRepoInfo should not have projectPath');
+  assert.ok(!('owner' in gitlab), 'GitLabRepoInfo should not have owner');
+  assert.ok(!('repo' in gitlab), 'GitLabRepoInfo should not have repo');
 });
