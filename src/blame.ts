@@ -1,29 +1,55 @@
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
+/** Detailed blame information for a single line in a file. */
 export interface BlameResult {
+  /** Full 40-character commit SHA. */
   sha: string;
+  /** Email address of the commit author. */
   authorEmail: string;
+  /** Display name of the commit author. */
   authorName: string;
+  /** Commit date in YYYY-MM-DD format. */
   date: string;
+  /** Commit subject line. */
   subject: string;
+  /** Raw content of the blamed line. */
   lineContent: string;
 }
 
+/** Aggregated contribution metrics for one author across a file. */
 export interface AuthorContribution {
+  /** Email address used to identify the author. */
   authorEmail: string;
+  /** Display name of the author. */
   authorName: string;
+  /** Total number of lines attributed to this author. */
   lines: number;
+  /** Most recent commit date attributed to this author, in YYYY-MM-DD format. */
   lastModified: string;
 }
 
+/** Author contribution for a specific file, including the file path and change classification. */
 export interface FileContribution extends AuthorContribution {
+  /** Path to the file relative to the repository root. */
   filePath: string;
+  /** Whether the file was newly added or modified within the reporting window. */
   changeType: 'added' | 'modified';
 }
 
+/** Options for controlling how file contributions are collected. */
 export interface ContributionReportOptions {
+  /**
+   * Only include contributions from commits after this date.
+   * Accepts any date string understood by `git log --since`.
+   */
   since?: string;
+  /**
+   * Custom command executor, replacing the default `execSync`-based runner.
+   * Useful for testing or environments where shell execution is controlled externally.
+   * @param command - The shell command to run.
+   * @returns stdout of the command as a string.
+   */
   exec?: (command: string) => string;
 }
 

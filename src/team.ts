@@ -1,19 +1,37 @@
 import { readFileSync } from 'node:fs';
 import type { FileContribution } from './blame.js';
 
+/** A single team member identified by name and email. */
 export interface TeamMember {
+  /** Display name of the team member. */
   name: string;
+  /** Email address used to match git contributions. */
   email: string;
 }
 
+/** Aggregated contribution statistics for one team member (or `[external]`). */
 export interface TeamContributionRow {
+  /** Team member email or the literal string `[external]` for non-team contributors. */
   label: string;
+  /** Total lines attributed to this member. */
   lines: number;
+  /** Number of unique files touched by this member. */
   files: number;
+  /** Rounded percentage of total lines owned by this member. */
   percent: number;
+  /** ASCII bar chart segment scaled to the member with the most lines. */
   bar: string;
 }
 
+/**
+ * Parses team members from a JSON string.
+ *
+ * The input must be a JSON array where each element has `name` and `email` string fields.
+ *
+ * @param content - UTF-8 string containing JSON.
+ * @returns Array of {@link TeamMember} objects.
+ * @throws If the content is not a valid JSON array or any element lacks required fields.
+ */
 export function parseTeamJson(content: string): TeamMember[] {
   const parsed = JSON.parse(content) as unknown;
   if (!Array.isArray(parsed)) {

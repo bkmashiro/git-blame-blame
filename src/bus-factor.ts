@@ -1,32 +1,63 @@
 import type { FileContribution } from './blame.js';
 
+/**
+ * Minimum ownership percentage for an author to be counted as a maintainer.
+ *
+ * An author who owns more than this share of a file's lines is considered
+ * a key maintainer for bus-factor calculations.
+ */
 export const BUS_FACTOR_THRESHOLD_PERCENT = 20;
 
+/** An author's ownership share of a single file, expressed as both raw lines and a percentage. */
 export interface FileAuthorShare {
+  /** Email address of the author. */
   email: string;
+  /** Display name of the author. */
   name: string;
+  /** Number of lines attributed to this author in the file. */
   lines: number;
+  /** Rounded percentage of total file lines owned by this author. */
   percent: number;
+  /** Most recent commit date attributed to this author, in YYYY-MM-DD format. */
   lastModified: string;
 }
 
+/** Bus-factor analysis result for a single file. */
 export interface FileBusFactor {
+  /** Path to the file relative to the repository root. */
   filePath: string;
+  /** Total number of attributed lines in the file. */
   totalLines: number;
+  /** Number of authors who own more than the threshold percentage of lines. */
   busFactor: number;
+  /** All authors with their ownership shares, sorted by descending line count. */
   authors: FileAuthorShare[];
+  /** Subset of `authors` who meet the maintainer ownership threshold. */
   maintainers: FileAuthorShare[];
 }
 
+/** Aggregated bus-factor analysis across all files in a repository or path. */
 export interface BusFactorReport {
+  /** Per-file analysis results, sorted by file path. */
   files: FileBusFactor[];
+  /** Minimum bus factor across all analysed files (worst-case knowledge concentration). */
   overallBusFactor: number;
+  /** Files with a bus factor of exactly 1 (single point of failure). */
   criticalFiles: FileBusFactor[];
+  /** Files with a bus factor of exactly 2 (shared but fragile ownership). */
   atRiskFiles: FileBusFactor[];
+  /** Files with a bus factor of 3 or more (healthy distributed ownership). */
   healthyFiles: FileBusFactor[];
+  /** Human-readable recommendation identifying the top single point of failure, or `null` if none. */
   recommendation: string | null;
 }
 
+/**
+ * Groups a flat list of file contributions by file path.
+ *
+ * @param contributions - Flat array of per-author-per-file contributions.
+ * @returns A map from file path to the array of contributions for that file.
+ */
 export function groupContributionsByFile(contributions: FileContribution[]): Map<string, FileContribution[]> {
   const grouped = new Map<string, FileContribution[]>();
 
@@ -39,6 +70,19 @@ export function groupContributionsByFile(contributions: FileContribution[]): Map
   return grouped;
 }
 
+/**
+ * Calculates the bus factor for a single file.
+ *
+ * The bus factor equals the number of authors whose ownership share exceeds
+ * `thresholdPercent`. A bus factor of 1 means a single author owns the majority
+ * of the file (critical risk); higher values indicate more distributed ownership.
+ *
+ * @param filePath - Path to the file being analysed.
+ * @param contributions - All contributions for this file (one entry per author).
+ * @param thresholdPercent - Minimum ownership percentage to qualify as a maintainer.
+ *   Defaults to {@link BUS_FACTOR_THRESHOLD_PERCENT}.
+ * @returns A {@link FileBusFactor} containing the bus factor score, all authors, and key maintainers.
+ */
 export function calculateFileBusFactor(
   filePath: string,
   contributions: FileContribution[],

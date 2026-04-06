@@ -1,21 +1,37 @@
 import { Octokit } from '@octokit/rest';
 
+/** GitHub repository coordinates parsed from a remote URL. */
 export interface RepoInfo {
+  /** GitHub organisation or user name. */
   owner: string;
+  /** Repository name. */
   repo: string;
 }
 
+/** Subset of pull request fields used for display and linking. */
 export interface PRInfo {
+  /** Pull request number. */
   number: number;
+  /** Pull request title. */
   title: string;
+  /** URL to the pull request on GitHub. */
   html_url: string;
 }
 
+/** A reviewer who approved a pull request. */
 export interface Approver {
+  /** GitHub login (username) of the approver. */
   login: string;
+  /** Email address of the approver, if available. */
   email?: string;
 }
 
+/**
+ * Extracts the first pull request from a GitHub "commits pulls" API response.
+ *
+ * @param pulls - Array of pull request objects returned by the GitHub API.
+ * @returns The first {@link PRInfo}, or `null` if the array is empty.
+ */
 export function parsePRFromCommitPullsResponse(
   pulls: Array<{ number: number; title: string; html_url: string }>
 ): PRInfo | null {
@@ -31,6 +47,15 @@ export function parsePRFromCommitPullsResponse(
   };
 }
 
+/**
+ * Filters a list of GitHub review objects down to unique approvals.
+ *
+ * Only reviews with `state === 'APPROVED'` are included. If the same reviewer
+ * approved multiple times, they appear once in the output.
+ *
+ * @param reviews - Array of review objects from the GitHub list-reviews API.
+ * @returns Deduplicated list of approvers.
+ */
 export function parseApprovalsFromReviews(
   reviews: Array<{ state?: string; user?: { login: string; email?: string | null } | null }>
 ): Approver[] {

@@ -4,11 +4,17 @@ import { BUS_FACTOR_THRESHOLD_PERCENT, type BusFactorReport, type FileBusFactor 
 import type { PRInfo, Approver } from './github.js';
 import type { TeamContributionRow } from './team.js';
 
+/** All data needed to render a single-line blame result. */
 export interface OutputData {
+  /** Path to the file being blamed. */
   file: string;
+  /** 1-based line number that was blamed. */
   line: number;
+  /** Blame metadata returned for this line. */
   blame: BlameResult;
+  /** Associated pull request, if one was found. */
   pr: PRInfo | null;
+  /** Reviewers who approved the associated pull request. */
   approvals: Approver[];
 }
 
