@@ -321,6 +321,38 @@ test('parseBlamePorcelainOutput throws when author-time header is missing before
   assert.throws(() => parseBlamePorcelainOutput(output), /Could not parse author date from git blame output/);
 });
 
+test('shellQuote wraps a plain string in single quotes', () => {
+  assert.equal(shellQuote('hello'), "'hello'");
+});
+
+test('shellQuote escapes single quotes using the POSIX close-open idiom', () => {
+  assert.equal(shellQuote("it's"), "'it'\\''s'");
+});
+
+test('shellQuote handles paths with spaces', () => {
+  assert.equal(shellQuote('my file.ts'), "'my file.ts'");
+});
+
+test('shellQuote handles paths with backticks', () => {
+  assert.equal(shellQuote('path`with`backticks'), "'path`with`backticks'");
+});
+
+test('shellQuote handles non-ASCII characters', () => {
+  assert.equal(shellQuote('café/naïve.ts'), "'café/naïve.ts'");
+});
+
+test('shellQuote handles a string containing only single quotes', () => {
+  assert.equal(shellQuote("'''"), `''\\'''\\'''\\'''`);
+});
+
+test('blameFile throws when line is 0', () => {
+  assert.throws(() => blameFile('/some/file.ts', 0), /Invalid line number: 0/);
+});
+
+test('blameFile throws when line is negative', () => {
+  assert.throws(() => blameFile('/some/file.ts', -1), /Invalid line number: -1/);
+});
+
 test('collectFileContributions filters blame results to authors active since the requested date', () => {
   const outputs = new Map<string, string>([
     ["git ls-files -- 'src/'", 'src/api.ts\nsrc/auth.ts'],
